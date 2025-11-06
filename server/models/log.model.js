@@ -1,15 +1,35 @@
 import mongoose from "mongoose";
 
 const logSchema = new mongoose.Schema({
-  service_name: String,
-  level: String,
-  message: String,
-  error_type: String,
-  stack: String,
-  metadata: Object,
-  timestamp: Date,
-  complexity: String,
-  severity: String,
+  serviceName: {
+    type: String,
+    required: true,
+  },
+  level: {
+    type: String,
+    required: true,
+  },
+  message: {
+    type: String,
+    required: true,
+  },
+  errorType: {
+    type: String,
+    required: true,
+  },
+  stack: {
+    type: String,
+    required: true,
+  },
+  metadata: {
+    type: Object,
+    required: true,
+  },
+  complexity: {
+    type: String,
+    required: true,
+  },
+  //   severity: String,
   status: { type: String, default: "active" },
   aiAnalysisId: { type: mongoose.Schema.Types.ObjectId, ref: "AIAnalysis" },
 });
