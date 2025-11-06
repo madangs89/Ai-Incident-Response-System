@@ -13,6 +13,12 @@ const notificationsSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  status: {
+    type: String,
+    required: true,
+    enum: ["read", "unread"],
+    default: "unread",
+  },
 });
 
 const Notifications = mongoose.model("Notification", notificationsSchema);

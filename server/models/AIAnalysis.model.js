@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const aiAnalysisSchema = new mongoose.Schema(
   {
-    logId: { type: mongoose.Schema.Types.ObjectId, ref: "Log" },
+    incidentId: { type: mongoose.Schema.Types.ObjectId, ref: "Incident" },
     rootCause: {
       type: String,
       required: true,

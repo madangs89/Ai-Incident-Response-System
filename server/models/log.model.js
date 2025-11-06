@@ -30,7 +30,7 @@ const logSchema = new mongoose.Schema({
     required: true,
   },
   status: { type: String, default: "active" },
-  aiAnalysisId: { type: mongoose.Schema.Types.ObjectId, ref: "AIAnalysis" },
+  incidentId: { type: mongoose.Schema.Types.ObjectId, ref: "Incident" },
 });
 
 const Log = mongoose.model("Log", logSchema);
