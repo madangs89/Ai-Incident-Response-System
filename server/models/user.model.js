@@ -14,7 +14,6 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true,
   },
-  apiKeys: [{ type: mongoose.Schema.Types.ObjectId, ref: "APIKey" }],
   notifications: {
     email: Boolean,
     aiSmartAlerts: Boolean,
