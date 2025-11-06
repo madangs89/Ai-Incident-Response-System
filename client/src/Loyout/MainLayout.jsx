@@ -4,11 +4,13 @@ import Navbar from "../Components/Navbar";
 
 export default function MainLayout() {
   return (
-    <div className="flex w-full h-screen">
+    <div className="flex w-full h-screen bg-[#F9FAFB]">
+      {/* Sidebar */}
       <Sidebar />
-      <div className="flex w-full h-screen flex-col">
+      {/* Main Area */}
+      <div className="flex flex-1 flex-col">
         <Navbar />
-        <main className="ml-64 mt-16 p-6 bg-[#f9fafc] min-h-screen">
+        <main className="ml-64 mt-16 p-8 bg-[#F9FAFB] min-h-screen">
           <Outlet />
         </main>
       </div>

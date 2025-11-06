@@ -10,7 +10,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 const App = () => {
   return (
-    <div>
+    <div className="w-full h-screen">
       <Routes>
         <Route path="/" element={<MainLayout />}>
           <Route index element={<Navigate to="/dashboard" />} />

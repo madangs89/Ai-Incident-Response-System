@@ -1,14 +1,56 @@
+import { Bell, HelpCircle } from "lucide-react";
+
 export default function Navbar() {
   return (
-    <div className="fixed left-64 top-0 right-0 h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
-      <input
-        type="text"
-        placeholder="Search incidents..."
-        className="border rounded-md px-3 py-2 w-80"
-      />
-      <div className="flex items-center space-x-4">
-        <span className="cursor-pointer">🔔</span>
-        <span className="cursor-pointer">👤</span>
+    <div className="fixed left-64 top-0 right-0 h-16 bg-gradient-to-b from-[#F8FBFF] to-[#F4F7FB] backdrop-blur-[8px] border-b border-gray-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)] flex items-center justify-between px-8 z-50">
+      {/* Left Section - Page Title */}
+      <h2 className="text-lg font-semibold text-[#0F172A] tracking-tight">
+        Dashboard
+      </h2>
+
+      {/* Right Section */}
+      <div className="flex items-center space-x-5">
+        {/* Search Bar */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search incidents, services..."
+            className="w-80 rounded-lg border border-gray-200 bg-[#F8FAFC] px-4 py-2.5 text-sm text-[#0F172A] placeholder:text-[#94A3B8] focus:ring-2 focus:ring-[#06B6D4]/30 focus:outline-none transition-all"
+          />
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-4 h-4 text-[#94A3B8] absolute right-3 top-1/2 transform -translate-y-1/2"
+            fill="none"
+            viewBox="0 0 24 24"
+            strokeWidth="2"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+            />
+          </svg>
+        </div>
+
+        {/* Notification & Help Icons */}
+        <div className="flex items-center space-x-3">
+          <button className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 bg-[#F8FAFC] text-[#64748B] hover:bg-[#EEF3F7] hover:text-[#0F172A] transition-all">
+            <Bell strokeWidth={2} className="w-5 h-5" />
+          </button>
+          <button className="w-10 h-10 flex items-center justify-center rounded-full border border-gray-200 bg-[#F8FAFC] text-[#64748B] hover:bg-[#EEF3F7] hover:text-[#0F172A] transition-all">
+            <HelpCircle strokeWidth={2} className="w-5 h-5" />
+          </button>
+
+          {/* User Avatar */}
+          <div
+            className="w-10 h-10 rounded-full bg-cover bg-center ring-2 ring-[#06B6D4]/70 hover:ring-[#06B6D4] transition-all duration-200"
+            style={{
+              backgroundImage:
+                'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAG1VuFO0waoCGo_46Qq5LlKmSRcN3RtxaKeOa22Ue4lsdyU2BA0wFf0IkC34hbN4tgaGA3kdHa4rPllRVIyen54CjGe4JQaSP0vhhsEmDwC79WyqZp_bLjJeTqvweN_gHElLLRpvkfSZY3bgcV20pxwh64aMhopnrpZIqnYiC2cAU_jO9k4k4KDMpWQg7gRTaPZoF7jfiSjRQc9tgjVAEPJ5qI4RPdzPgInmm3IFYxw-MblUKcKeH2S91J6j29GZcbwr8Ht-Vw5Uay")',
+            }}
+          ></div>
+        </div>
       </div>
     </div>
   );
