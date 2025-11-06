@@ -29,6 +29,10 @@ const logSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+//   count: {
+//     type: Number,
+//     default: 0,
+//   },
   //   severity: String,
   status: { type: String, default: "active" },
   aiAnalysisId: { type: mongoose.Schema.Types.ObjectId, ref: "AIAnalysis" },
