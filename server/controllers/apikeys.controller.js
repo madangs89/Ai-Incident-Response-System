@@ -169,3 +169,33 @@ export const getAPIKeys = async (req, res) => {
     });
   }
 };
+
+export const verifyKeys = async (req, res) => {
+  try {
+    const { key } = req.body;
+    if (!key) {
+      return res.status(400).json({
+        message: "API key is required",
+        success: false,
+      });
+    }
+    const apiKey = await APIKey.findOne({ key });
+    if (!apiKey) {
+      return res.status(404).json({
+        message: "API key not found",
+        success: false,
+      });
+    }
+    return res.status(200).json({
+      message: "API key verified successfully",
+      success: true,
+      data: apiKey,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Something went wrong",
+      success: false,
+    });
+  }
+};

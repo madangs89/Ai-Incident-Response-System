@@ -89,11 +89,13 @@ export const login = async (req, res) => {
         success: false,
       });
     }
-    const isPasswordCorrect = await bcrypt.compare(
-      password,
-      isUserExitsOrNot.password
-    );
-
+    let isPasswordCorrect;
+    if (isUserExitsOrNot.password) {
+      isPasswordCorrect = await bcrypt.compare(
+        password,
+        isUserExitsOrNot?.password
+      );
+    }
     if (!isPasswordCorrect) {
       return res.status(400).json({
         message: "Incorrect password",
@@ -114,6 +116,7 @@ export const login = async (req, res) => {
       token,
     });
   } catch (error) {
+    console.log(error);
     return res
       .status(500)
       .json({ message: "Something went wrong", success: false });
@@ -134,7 +137,7 @@ export const oAuthLogin = async (req, res) => {
     oAuth2Client.setCredentials(googleToken.tokens);
 
     const userDetails = await axios.get(
-      "https://www.googleapis.com/oauth2/v2/userinfo",
+      "https://www.googleapis.com/oauth2/v3/userinfo",
       {
         headers: {
           Authorization: `Bearer ${googleToken.tokens.access_token}`,
@@ -183,10 +186,142 @@ export const oAuthLogin = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    
+
     return res.status(500).json({
       message: "Something went wrong",
       success: false,
     });
+  }
+};
+
+export const isAuthenticated = async (req, res) => {
+  try {
+    const user = req.user;
+    if (!user._id) {
+      return res.status(401).json({
+        message: "Unauthorized",
+        success: false,
+      });
+    }
+    return res.status(200).json({
+      message: "User is authenticated",
+      success: true,
+      user,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Something went wrong",
+      success: false,
+    });
+  }
+};
+
+export const logout = async (req, res) => {
+  try {
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+    return res.status(200).json({
+      message: "User logged out successfully",
+      success: true,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Something went wrong",
+      success: false,
+    });
+  }
+};
+
+export const gitLogin = async (req, res) => {
+  const { code } = req.body;
+  try {
+    const tokenRes = await axios.post(
+      "https://github.com/login/oauth/access_token",
+      {
+        client_id: process.env.GIT_CLIENT_ID,
+        client_secret: process.env.GIT_CLIENT_SECRET,
+        code,
+      },
+      { headers: { Accept: "application/json" } }
+    );
+
+    let accessToken = tokenRes.data.access_token;
+    if (!accessToken)
+      return res.status(400).json({ message: "Invalid code", success: false });
+
+    // Step 5: Get user info
+    const userRes = await axios.get("https://api.github.com/user", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    console.log(userRes.data);
+
+    const { avatar_url, name, email , login } = userRes.data;
+
+    let finalEmail = email;
+
+    // Step 3: If email is not returned, fetch from /user/emails
+    if (!finalEmail) {
+      const emailRes = await axios.get("https://api.github.com/user/emails", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+
+      const primaryEmail = emailRes.data.find(
+        (e) => e.primary && e.verified
+      )?.email;
+
+      if (primaryEmail) {
+        finalEmail = primaryEmail;
+      } else {
+        // Step 4: Generate fallback email if still not found
+        finalEmail = `user_${id}@github-temp.com`;
+      }
+    }
+
+    console.log(finalEmail);
+    
+
+    let isUserExits = await User.findOne({ email: finalEmail });
+
+    if (isUserExits) {
+      const token = generateToken(isUserExits);
+      createCookie(res, token);
+      return res.status(200).json({
+        message: "User logged in successfully",
+        success: true,
+        user: {
+          _id: isUserExits._id,
+          userName: isUserExits.userName,
+          email: isUserExits.email,
+          avatar: isUserExits.avatar,
+        },
+        token,
+      });
+    }
+
+    const user = await User.create({
+      userName: name || login,
+      email: finalEmail,
+      avatar: avatar_url,
+    });
+
+    const token = generateToken(user);
+    createCookie(res, token);
+    return res.status(200).json({
+      message: "User logged in successfully",
+      success: true,
+      user: {
+        _id: user._id,
+        userName: user.userName,
+        email: user.email,
+        avatar: user.avatar,
+      },
+      token,
+    });
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).json({ message: "Failed to authenticate", success: false });
   }
 };

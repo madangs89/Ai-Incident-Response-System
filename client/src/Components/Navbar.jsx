@@ -1,8 +1,11 @@
 import { Bell, HelpCircle } from "lucide-react";
+import { useSelector } from "react-redux";
+import Avatar from "./Avatar";
 
 export default function Navbar() {
+  const user = useSelector((state) => state.auth);
   return (
-    <div className="fixed left-64 top-0 right-0 h-16 bg-gradient-to-b from-[#F8FBFF] to-[#F4F7FB] backdrop-blur-[8px] border-b border-gray-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)] flex items-center justify-between px-8 z-50">
+    <div className="fixed left-64 top-0 right-0 h-16 bg-white backdrop-blur-[8px] border-b border-gray-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)] flex items-center justify-between px-8 z-50">
       {/* Left Section - Page Title */}
       <h2 className="text-lg font-semibold text-[#0F172A] tracking-tight">
         Dashboard
@@ -43,13 +46,7 @@ export default function Navbar() {
           </button>
 
           {/* User Avatar */}
-          <div
-            className="w-10 h-10 rounded-full bg-cover bg-center ring-2 ring-[#06B6D4]/70 hover:ring-[#06B6D4] transition-all duration-200"
-            style={{
-              backgroundImage:
-                'url("https://lh3.googleusercontent.com/aida-public/AB6AXuAG1VuFO0waoCGo_46Qq5LlKmSRcN3RtxaKeOa22Ue4lsdyU2BA0wFf0IkC34hbN4tgaGA3kdHa4rPllRVIyen54CjGe4JQaSP0vhhsEmDwC79WyqZp_bLjJeTqvweN_gHElLLRpvkfSZY3bgcV20pxwh64aMhopnrpZIqnYiC2cAU_jO9k4k4KDMpWQg7gRTaPZoF7jfiSjRQc9tgjVAEPJ5qI4RPdzPgInmm3IFYxw-MblUKcKeH2S91J6j29GZcbwr8Ht-Vw5Uay")',
-            }}
-          ></div>
+         <Avatar src={ user?.user?.avatar} />
         </div>
       </div>
     </div>

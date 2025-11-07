@@ -61,7 +61,7 @@ const Dashboard = () => {
   const COLORS = ["#A7F3D0", "#67E8F9", "#22D3EE", "#0EA5E9", "#0284C7"];
 
   return (
-    <div className="w-full h-full bg-[#F9FAFB] px-8 py-1 overflow-hidden flex flex-col gap-8">
+    <div className="w-full min-h-screen bg-[#F9FAFB]  overflow-hidden flex flex-col gap-8">
       {/* Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((item, i) => (
