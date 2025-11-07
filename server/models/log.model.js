@@ -29,6 +29,10 @@ const logSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  key: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "APIKey",
+  },
   status: { type: String, default: "active" },
   incidentId: { type: mongoose.Schema.Types.ObjectId, ref: "Incident" },
 });

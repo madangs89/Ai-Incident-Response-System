@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import APIKey from "../models/apikeys.model";
+import APIKey from "../models/apikeys.model.js";
 
 const generateKeys = () => {
   return crypto.randomBytes(32).toString("hex");
@@ -13,19 +13,19 @@ export const createAPIKey = async (req, res) => {
         success: false,
       });
     }
-    const { projectName, environment } = req.body;
+    const { projectName } = req.body;
     if (!projectName) {
       return res.status(400).json({
         message: "Project name is required",
         success: false,
       });
     }
+
     const key = generateKeys();
     const apiKey = await APIKey.create({
       key,
       userId: user._id,
       projectName,
-      environment,
     });
 
     if (!apiKey) {
@@ -153,9 +153,9 @@ export const getAPIKeys = async (req, res) => {
         success: false,
       });
     }
-
-    const data = APIKey.find({ userId: user._id });
-
+    const data = await APIKey.find({ userId: user._id }).sort({
+      createdAt: -1,
+    });
     return res.status(200).json({
       message: "API keys fetched successfully",
       success: true,
@@ -172,11 +172,12 @@ export const getAPIKeys = async (req, res) => {
 
 export const verifyKeys = async (req, res) => {
   try {
-    const { key } = req.body;
+    const key = req.get("x-api-key") || req.headers["x-api-key"];
     if (!key) {
       return res.status(400).json({
         message: "API key is required",
         success: false,
+        valid: false,
       });
     }
     const apiKey = await APIKey.findOne({ key });
@@ -184,11 +185,13 @@ export const verifyKeys = async (req, res) => {
       return res.status(404).json({
         message: "API key not found",
         success: false,
+        valid: false,
       });
     }
     return res.status(200).json({
       message: "API key verified successfully",
       success: true,
+      valid: true,
       data: apiKey,
     });
   } catch (error) {
@@ -196,6 +199,7 @@ export const verifyKeys = async (req, res) => {
     return res.status(500).json({
       message: "Something went wrong",
       success: false,
+      valid: false,
     });
   }
 };

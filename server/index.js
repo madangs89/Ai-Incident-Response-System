@@ -5,6 +5,7 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { connectDB } from "./config/connnectDb.js";
 import authRouter from "./routes/auth.routes.js";
+import keysRouter from "./routes/keys.routes.js";
 const app = express();
 
 app.use(
@@ -26,6 +27,7 @@ app.get("/", (req, res) => {
 });
 
 app.use("/api", authRouter);
+app.use("/api", keysRouter);
 
 app.listen(process.env.PORT, async () => {
   await connectDB();

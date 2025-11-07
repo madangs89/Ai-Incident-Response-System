@@ -13,6 +13,7 @@ const apiKeySchema = new mongoose.Schema(
       required: true,
     },
     environment: { type: String, default: "development" },
+    totalAnalyzedLogs: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

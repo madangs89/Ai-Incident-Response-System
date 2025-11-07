@@ -8,6 +8,10 @@ const incidentSchema = new mongoose.Schema(
     occurrences: { type: Number, default: 1 }, // how many logs linked
     lastSeen: { type: Date, default: Date.now },
     aiAnalysisId: { type: mongoose.Schema.Types.ObjectId, ref: "AIAnalysis" },
+    key: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "APIKey",
+    },
   },
   { timestamps: true }
 );

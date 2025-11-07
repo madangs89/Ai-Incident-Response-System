@@ -45,7 +45,7 @@ export default class AIAnalyzerLogger {
       if (!key) {
         return;
       }
-      let ok = await axios.get(`${this.baseUrl}/verify`, {
+      let ok = await axios.get(`${this.baseUrl}/api/verify`, {
         headers: {
           "x-api-key": key,
         },
