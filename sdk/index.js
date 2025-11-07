@@ -15,7 +15,7 @@ export default class AIAnalyzerLogger {
       );
     }
     this.apiKey = key;
-    this.baseUrl = "https://localhost:3000";
+    this.baseUrl = "http://localhost:3000";
     this.serviceName = serviceName;
     this.isVerified = false;
     this.collectTelemetry = false;
@@ -45,11 +45,12 @@ export default class AIAnalyzerLogger {
       if (!key) {
         return;
       }
-      let ok = await axios.get(`${this.baseUrl}/api/verify`, {
+      let ok = await axios.get(`${this.baseUrl}/api/key/verify`, {
         headers: {
           "x-api-key": key,
         },
       });
+
       if (ok.data.valid) {
         this.isVerified = true;
         this.consoler("API Key is verified");
@@ -59,7 +60,7 @@ export default class AIAnalyzerLogger {
       }
     } catch (error) {
       this.isVerified = false;
-      this.consoler(error);
+      this.consoler(error.response.data.message);
     }
   };
 
@@ -86,6 +87,190 @@ export default class AIAnalyzerLogger {
   consoler = (data) => {
     console.log(data);
   };
+
+  /**
+   * Classifies an error based on message content, error name, stack trace, HTTP status,
+   * module context, and operation type.
+   *
+   * Returns:
+   * {
+   *   level: "CRITICAL" | "HIGH" | "MEDIUM" | "LOW" | "INFO",
+   *   severity: 1–5,
+   *   topFrame: { functionName, file, line, col }
+   * }
+   *
+   * Severity Scale:
+   *  5 - CRITICAL  : Fatal crash, unhandled, global, DB down
+   *  4 - HIGH      : Server/network/database failure, 5xx errors
+   *  3 - MEDIUM    : Validation, 4xx client-side errors
+   *  2 - LOW       : Not found / Unauthorized / Forbidden
+   *  1 - INFO      : Informational or non-error logs
+   */
+
+  classifyErrorSeverity(errorObj, metadata = {}) {
+    const message = errorObj?.message?.toLowerCase?.() || "";
+    const name = errorObj?.name?.toLowerCase?.() || "";
+    const stack = errorObj?.stack || "";
+
+    const top = this.parseTopStackFrame?.(stack);
+    const file = top?.file?.toLowerCase?.() || "";
+
+    const module = metadata?.module?.toLowerCase?.() || "";
+    const operation = metadata?.operation?.toLowerCase?.() || "";
+    const status = metadata?.status || null;
+
+    // Default classification
+    let level = "INFO";
+    let severity = 1;
+
+    // 🌍 Global / System-level error contexts
+    const isGlobal =
+      module.includes("global") ||
+      operation.includes("unhandledrejection") ||
+      operation.includes("uncaughtexception") ||
+      message.includes("uncaught") ||
+      message.includes("unhandledrejection");
+
+    // 🧠 Module-based flags
+    const isDatabase =
+      module.includes("database") ||
+      module.includes("db") ||
+      message.includes("mongo") ||
+      message.includes("sql") ||
+      file.includes("database") ||
+      file.includes("db");
+
+    const isNetwork =
+      module.includes("network") ||
+      module.includes("api") ||
+      message.includes("socket") ||
+      message.includes("connection") ||
+      message.includes("timeout") ||
+      file.includes("net");
+
+    const isAuth =
+      module.includes("auth") ||
+      message.includes("unauthorized") ||
+      message.includes("forbidden");
+
+    const isFilesystem =
+      module.includes("fs") ||
+      message.includes("enoent") ||
+      message.includes("permission denied") ||
+      message.includes("file not found");
+
+    const isExternalService =
+      module.includes("external") ||
+      message.includes("axios") ||
+      message.includes("fetch") ||
+      message.includes("third party");
+
+    // 🧱 Stack awareness — check if error comes from user code
+    const isUserCode =
+      file && !file.includes("node_modules") && !file.includes("internal");
+
+    // -------------------------------------------------------------------------------------
+    // 🔥 CRITICAL ERRORS (Level 5)
+    // -------------------------------------------------------------------------------------
+    if (
+      isGlobal ||
+      name.includes("referenceerror") ||
+      name.includes("syntaxerror") ||
+      name.includes("typeerror") ||
+      message.includes("crash") ||
+      message.includes("out of memory") ||
+      message.includes("cannot read property") ||
+      message.includes("segmentation fault") ||
+      (isDatabase && message.includes("connection refused")) ||
+      message.includes("database error") ||
+      message.includes("stack overflow") ||
+      message.includes("heap out of memory")
+    ) {
+      level = "CRITICAL";
+      severity = 5;
+    }
+
+    // -------------------------------------------------------------------------------------
+    // ⚠️ HIGH ERRORS (Level 4)
+    // -------------------------------------------------------------------------------------
+    else if (
+      message.includes("timeout") ||
+      message.includes("failed") ||
+      message.includes("internal server error") ||
+      message.includes("service unavailable") ||
+      status >= 500 ||
+      isNetwork ||
+      isDatabase ||
+      isFilesystem ||
+      isExternalService
+    ) {
+      level = "HIGH";
+      severity = 4;
+    }
+
+    // -------------------------------------------------------------------------------------
+    // 🟡 MEDIUM ERRORS (Level 3)
+    // -------------------------------------------------------------------------------------
+    else if (
+      message.includes("validation") ||
+      message.includes("bad request") ||
+      message.includes("invalid") ||
+      message.includes("unprocessable") ||
+      status >= 400
+    ) {
+      level = "MEDIUM";
+      severity = 3;
+    }
+
+    // -------------------------------------------------------------------------------------
+    // 🟢 LOW ERRORS (Level 2)
+    // -------------------------------------------------------------------------------------
+    else if (
+      message.includes("not found") ||
+      message.includes("unauthorized") ||
+      message.includes("forbidden") ||
+      message.includes("missing") ||
+      status === 404 ||
+      status === 401 ||
+      status === 403 ||
+      isAuth
+    ) {
+      level = "LOW";
+      severity = 2;
+    }
+
+    // -------------------------------------------------------------------------------------
+    // 🔍 Contextual Adjustments
+    // -------------------------------------------------------------------------------------
+
+    // Database errors are always more severe
+    if (isDatabase && severity < 5) severity = Math.min(severity + 1, 5);
+
+    // Global unhandled errors always critical
+    if (isGlobal && severity < 5) severity = 5;
+
+    // User code failures are more severe
+    if (isUserCode && severity < 5) severity += 1;
+
+    // Library or dependency code failures are slightly less severe
+    if (file.includes("node_modules") && severity > 2) severity -= 1;
+
+    // Normalize boundaries
+    severity = Math.min(Math.max(severity, 1), 5);
+
+    // Assign matching level if not explicitly set
+    if (severity === 5) level = "CRITICAL";
+    else if (severity === 4) level = "HIGH";
+    else if (severity === 3) level = "MEDIUM";
+    else if (severity === 2) level = "LOW";
+    else level = "INFO";
+
+    return {
+      level,
+      severity,
+      topFrame: top || {},
+    };
+  }
 
   setupGlobalCapture = () => {
     if (!this.isVerified) {
@@ -177,6 +362,12 @@ export default class AIAnalyzerLogger {
       return;
     }
     if (payload) {
+      const { level, severity } = this.classifyErrorSeverity(
+        error,
+        payload.metadata
+      );
+      payload.level = level;
+      payload.metadata.severity = severity;
       const response = await this.sendToApi(payload);
       if (!response) {
         this.consoler("Response is not set");
@@ -195,7 +386,6 @@ export default class AIAnalyzerLogger {
       this.consoler("Error is not set");
       return;
     }
-
     if (metadata.module) {
       metadata.module = metadata.module.toLowerCase();
     } else {
@@ -265,7 +455,7 @@ export default class AIAnalyzerLogger {
     return payload;
   };
 
-  captureMessage(message, level = "INFO", metadata = {}) {
+  captureMessage = async (message, level = "INFO", metadata = {}) => {
     const payload = {
       id: uuidv4(),
       service_name: this.serviceName,
@@ -274,17 +464,31 @@ export default class AIAnalyzerLogger {
       metadata,
       timestamp: this.nowIso(),
     };
-    return this.sendToApi(payload);
-  }
+    return await this.sendToApi(payload);
+  };
 
   sendToApi = async (payload) => {
     let maxTries = 3;
     let attempt = 0;
     while (attempt <= maxTries) {
+      this.consoler("Sending to api");
       try {
-        await axios.post(this.baseUrl, payload);
+        const data = await axios.post(
+          `${this.baseUrl}/api/log/create`,
+          payload,
+          {
+            headers: {
+              "x-api-key": this.apiKey,
+            },
+          }
+        );
+        this.consoler(data.data);
+
+        this.consoler(payload);
         return true;
       } catch (error) {
+        console.log(error);
+
         attempt++;
         if (attempt > maxTries) break;
         await new Promise((resolve) => setTimeout(resolve, 1000));

@@ -169,7 +169,6 @@ export const getAPIKeys = async (req, res) => {
     });
   }
 };
-
 export const verifyKeys = async (req, res) => {
   try {
     const key = req.get("x-api-key") || req.headers["x-api-key"];
