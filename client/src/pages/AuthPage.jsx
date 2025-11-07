@@ -1,5 +1,7 @@
 import React, { useState } from "react";
 import { Bell, HelpCircle } from "lucide-react";
+import { useGoogleLogin } from "@react-oauth/google";
+import axios from "axios";
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -8,6 +10,31 @@ const AuthPage = () => {
     e.preventDefault();
     console.log(isLogin ? "Logging in..." : "Signing up...");
   };
+
+  const successHandler = async (googleData) => {
+    try {
+      console.log(googleData);
+
+      const { code } = googleData;
+      const data = await axios.post(
+        `${import.meta.env.VITE_BACKEND_URL}/api/auth/google`,
+        { code },
+        {
+          withCredentials: true,
+        }
+      );
+
+      console.log(data);
+    } catch (error) {
+      console.log(error);
+    }
+  };
+
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: successHandler,
+    onError: successHandler,
+    flow: "auth-code",
+  });
 
   return (
     <div className="w-full min-h-screen bg-[#F9FAFB] flex flex-col">
@@ -97,7 +124,10 @@ const AuthPage = () => {
 
           {/* Social Buttons */}
           <div className="flex flex-col gap-3">
-            <button className="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-all text-sm text-gray-700">
+            <button
+              onClick={() => handleGoogleLogin()}
+              className="flex items-center justify-center gap-2 w-full py-2 rounded-lg border border-gray-300 bg-white hover:bg-gray-50 transition-all text-sm text-gray-700"
+            >
               <img
                 src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/google/google-original.svg"
                 alt="google"

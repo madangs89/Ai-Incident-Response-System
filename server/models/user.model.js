@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-
 const userSchema = new mongoose.Schema({
   userName: {
     type: String,
@@ -15,8 +14,8 @@ const userSchema = new mongoose.Schema({
     unique: true,
   },
   notifications: {
-    email: Boolean,
-    aiSmartAlerts: Boolean,
+    type: Boolean,
+    default: true,
   },
 });
 

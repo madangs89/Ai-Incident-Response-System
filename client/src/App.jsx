@@ -11,7 +11,7 @@ import Settings from "./pages/Settings";
 import AuthPage from "./pages/AuthPage";
 
 const App = () => {
-  const [auth, setAuth] = useState(true);
+  const [auth, setAuth] = useState(false);
 
   return (
     <div className="w-full h-screen">
@@ -37,7 +37,10 @@ const App = () => {
         </Route>
 
         {/* Catch-All (Optional) */}
-        <Route path="*" element={<Navigate to={auth ? "/dashboard" : "/login"} />} />
+        <Route
+          path="*"
+          element={<Navigate to={auth ? "/dashboard" : "/login"} />}
+        />
       </Routes>
     </div>
   );
