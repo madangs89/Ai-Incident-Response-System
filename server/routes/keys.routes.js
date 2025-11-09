@@ -9,9 +9,9 @@ import { authMiddleware } from "../middelwares/auth.middelware.js";
 
 const keysRouter = express.Router();
 
-keysRouter.post("/key/create", authMiddleware, createAPIKey);
-keysRouter.get("/key/get", authMiddleware, getAPIKeys);
-keysRouter.delete("/key/delete/:id", authMiddleware, deleteAPIKey);
-keysRouter.get("/key/verify", verifyKeys);
+keysRouter.post("/create", authMiddleware, createAPIKey);
+keysRouter.get("/get", authMiddleware, getAPIKeys);
+keysRouter.delete("/delete/:id", authMiddleware, deleteAPIKey);
+keysRouter.get("/verify", verifyKeys);
 
 export default keysRouter;
