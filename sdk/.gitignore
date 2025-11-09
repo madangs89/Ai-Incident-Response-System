@@ -2,7 +2,9 @@
 /node_modules
 /.pnp
 .pnp.js
-
+./express.js
+/express.js
+/test.js
 # Logs
 logs
 *.log

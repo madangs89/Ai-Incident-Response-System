@@ -20,12 +20,17 @@ export default class AIAnalyzerLogger {
     this.isVerified = false;
     this.collectTelemetry = false;
     this.environment = environment;
+    this.queue = [];
+    this.isFlushing = false;
+    this.flushInterval = 5 * 1000; // 5 seconds
+    this.batchSize = 10;
+    this.flushTimer = null;
   }
 
   nowIso() {
     return new Date().toISOString();
   }
-  init = async () => {
+  init = async (app) => {
     if (this.apiKey == undefined || this.apiKey.length <= 0) {
       this.consoler("API Key is not set");
       throw new Error(
@@ -38,48 +43,91 @@ export default class AIAnalyzerLogger {
       this.isVerified = true;
       this.consoler("API Key is verified");
     }
+
+    if (this.isVerified && app) {
+      this.patchExpress(app);
+      app.use((req, res, next) => this.expressMetricCapture(req, res, next));
+    }
+    this.setupGlobalCapture();
   };
 
   verifyKey = async (key) => {
-    try {
-      if (!key) {
-        return;
-      }
-      let ok = await axios.get(`${this.baseUrl}/api/key/verify`, {
-        headers: {
-          "x-api-key": key,
-        },
-      });
-
-      if (ok.data.valid) {
-        this.isVerified = true;
-        this.consoler("API Key is verified");
-      } else {
-        this.isVerified = false;
-        this.consoler("API Key is not verified");
-      }
-    } catch (error) {
-      this.isVerified = false;
-      this.consoler(error.response.data.message);
+    if (this.isVerified === true) {
+      this.consoler("API Key already verified, skipping verification");
+      return;
     }
+
+    if (!key) {
+      this.consoler("API Key missing during verification");
+      return;
+    }
+
+    let attempts = 0;
+    while (attempts < 3) {
+      try {
+        const res = await axios.get(`${this.baseUrl}/api/key/verify`, {
+          headers: { "x-api-key": key },
+          timeout: 3000,
+        });
+        if (res.data.valid) {
+          this.isVerified = true;
+          this.consoler("✅ API Key verified successfully");
+          return;
+        } else {
+          this.consoler("❌ API Key invalid — stopping logging");
+          this.isVerified = false;
+          return; // stop trying if key is invalid
+        }
+      } catch (error) {
+        attempts++;
+        this.isVerified = false;
+      }
+    }
+
+    this.consoler("⚠️ Could not verify key after retries — will retry later.");
   };
 
   parseTopStackFrame(stack) {
     if (!stack || typeof stack !== "string") return null;
+
+    // Normalize lines
     const lines = stack
       .split("\n")
       .map((l) => l.trim())
       .filter(Boolean);
-    for (let i = 1; i < lines.length; i++) {
+
+    // Several regex patterns to match common stack formats (V8/Node, Firefox, Safari)
+    const patterns = [
+      // Node/V8: at functionName (filePath:line:col) OR at filePath:line:col
+      /at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?$/,
+      // Chrome anonymous: at filePath:line:col
+      /^(.+?):(\d+):(\d+)$/,
+      // Firefox: functionName@filePath:line:col
+      /^(?:(.+?)@)?(.+?):(\d+):(\d+)$/,
+    ];
+
+    // prefer first non-internal, non-node_module frame (skip first line if it's message)
+    for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      // matches: at fn (path:line:col)  OR  at path:line:col
-      const m = line.match(/at\s+(?:(.+?)\s+\()?(.+?):(\d+):(\d+)\)?$/);
-      if (m) {
-        const functionName = m[1] || "<anonymous>";
-        const file = m[2];
-        const lineNo = parseInt(m[3], 10);
-        const colNo = parseInt(m[4], 10);
-        return { functionName, file, line: lineNo, col: colNo };
+      for (const pat of patterns) {
+        const m = line.match(pat);
+        if (m) {
+          // normalize groups: functionName optional
+          let functionName = m[1] || "<anonymous>";
+          let file = m[2];
+          let lineNo = parseInt(m[3], 10);
+          let colNo = parseInt(m[4], 10);
+          if (!file) continue;
+          // Skip internal frames
+          const fileLower = String(file).toLowerCase();
+          if (
+            fileLower.includes("(internal") ||
+            fileLower.includes("node:internal")
+          )
+            continue;
+          // return first useful frame
+          return { functionName, file, line: lineNo, col: colNo };
+        }
       }
     }
     return null;
@@ -272,6 +320,51 @@ export default class AIAnalyzerLogger {
     };
   }
 
+  patchExpress(app) {
+    if (!app || typeof app.use !== "function") {
+      this.consoler("Invalid Express app instance passed to patchExpress");
+      return;
+    }
+
+    const methodsToPatch = ["get", "post", "put", "delete", "patch", "all"];
+    methodsToPatch.forEach((method) => {
+      const originalMethod = app[method].bind(app);
+
+      app[method] = (path, ...handlers) => {
+        const wrappedHandlers = handlers.map((handler) => {
+          if (typeof handler !== "function") return handler;
+
+          // Wrap each handler
+          return async (req, res, next) => {
+            try {
+              await Promise.resolve(handler(req, res, next));
+            } catch (err) {
+              console.log(
+                `⚠️ [AIAnalyzer] Auto-captured route error on ${method.toUpperCase()} ${path}:`,
+                err.message
+              );
+
+              await this.captureError(
+                err,
+                { module: "express", operation: "autoWrap", method, path },
+                { req, isReq: true }
+              );
+
+              // Forward to Express error handlers if needed
+              next(err);
+            }
+          };
+        });
+
+        return originalMethod(path, ...wrappedHandlers);
+      };
+    });
+
+    console.log(
+      "🧠 [AIAnalyzer] Express methods patched for auto error capture"
+    );
+  }
+
   setupGlobalCapture = () => {
     if (!this.isVerified) {
       this.consoler("API Key is not verified");
@@ -317,14 +410,30 @@ export default class AIAnalyzerLogger {
           );
         });
     });
+    process.on("beforeExit", async () => {
+      if (this.queue.length > 0) {
+        try {
+          await this.flushQueue();
+        } catch (error) {}
+      }
+    });
+    process.on("exit", () => {
+      if (this.flushTimer) clearTimeout(this.flushTimer);
+    });
   };
 
   expressCapture = async (err, req, res, next) => {
+    console.log("handle comes to express capture");
     if (!this.isVerified) {
       this.consoler("API Key is not verified");
       return;
     }
     try {
+      if (!err) {
+        return next();
+      }
+      console.log("error in express capture", err);
+
       await this.captureError(
         err,
         { module: "express", operation: "express" },
@@ -332,19 +441,8 @@ export default class AIAnalyzerLogger {
       );
     } catch (error) {
       this.consoler(error);
-    } finally {
-      const start = Date.now();
-      res.on("finish", () => {
-        const duration = Date.now() - start;
-        this.captureMessage("API_METRIC", "INFO", {
-          endpoint: req.originalUrl,
-          method: req.method,
-          status: res.statusCode,
-          duration,
-        });
-      });
-      next();
     }
+    next();
   };
 
   captureError = async (error, metadata, data) => {
@@ -377,6 +475,56 @@ export default class AIAnalyzerLogger {
       return response;
     }
   };
+
+  expressMetricCapture = async (req, res, next) => {
+    console.log("🟢 [AIAnalyzer] expressCapture started:", req.originalUrl);
+
+    if (!this.isVerified) {
+      this.consoler("API Key is not verified");
+      return next();
+    }
+
+    const start = Date.now();
+
+    // 🧩 Wrap response finish for metrics
+    res.on("finish", async () => {
+      const duration = Date.now() - start;
+      console.log("metric", {
+        endpoint: req.originalUrl,
+        method: req.method,
+        status: res.statusCode,
+        duration,
+      });
+
+      // this.captureMessage("API_METRIC", "INFO", {
+      //   endpoint: req.originalUrl,
+      //   method: req.method,
+      //   status: res.statusCode,
+      //   duration,
+      // });
+
+      if (res.statusCode >= 500) {
+        // 🟥 System / server error
+        await this.captureError(
+          new Error(`HTTP ${res.statusCode} ${req.method} ${req.originalUrl}`),
+          { module: "express", operation: "response", status: res.statusCode },
+          { req, isReq: true }
+        );
+      } else if (res.statusCode >= 400) {
+        // 🟡 Client-side handled error (optional)
+        await this.captureError(
+          new Error(
+            `ClientError ${res.statusCode} ${req.method} ${req.originalUrl}`
+          ),
+          { module: "express", operation: "response", status: res.statusCode },
+          { req, isReq: true }
+        );
+      }
+    });
+
+    next();
+  };
+
   buildPayload = (error, metadata, data) => {
     if (!this.isVerified) {
       this.consoler("API Key is not verified");
@@ -456,6 +604,10 @@ export default class AIAnalyzerLogger {
   };
 
   captureMessage = async (message, level = "INFO", metadata = {}) => {
+    if (!this.isVerified) {
+      this.consoler("API Key is not verified");
+      return;
+    }
     const payload = {
       id: uuidv4(),
       service_name: this.serviceName,
@@ -468,32 +620,69 @@ export default class AIAnalyzerLogger {
   };
 
   sendToApi = async (payload) => {
-    let maxTries = 3;
-    let attempt = 0;
-    while (attempt <= maxTries) {
-      this.consoler("Sending to api");
-      try {
-        const data = await axios.post(
-          `${this.baseUrl}/api/log/create`,
-          payload,
-          {
-            headers: {
-              "x-api-key": this.apiKey,
-            },
-          }
-        );
-        this.consoler(data.data);
-
-        this.consoler(payload);
-        return true;
-      } catch (error) {
-        console.log(error);
-
-        attempt++;
-        if (attempt > maxTries) break;
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
+    if (!this.isVerified) {
+      this.consoler("API Key is not verified");
+      return;
     }
-    return false;
+    this.queue.push(payload);
+
+    // If we have a full batch, flush immediately
+    if (this.queue.length >= this.batchSize) {
+      this.flushQueue();
+      return;
+    }
+
+    // Otherwise schedule a flush if not already scheduled
+    if (!this.flushTimer) {
+      this.flushTimer = setTimeout(() => {
+        this.flushTimer = null;
+        if (this.queue.length > 0) this.flushQueue();
+      }, this.flushInterval);
+    }
   };
+
+  flushQueue = async () => {
+    console.log("Handle comes to flushQueue");
+
+    if (!this.isVerified) {
+      this.consoler("API Key is not verified");
+      return;
+    }
+
+    if (this.isFlushing || this.queue.length <= 0) {
+      return;
+    }
+    const batch = this.queue.splice(0, this.batchSize);
+    try {
+      this.isFlushing = true;
+      const { data } = await axios.post(
+        `${this.baseUrl}/api/log/create`,
+        batch,
+        {
+          headers: { "x-api-key": this.apiKey },
+          timeout: 5000,
+        }
+      );
+      this.consoler(data);
+      this.consoler(`[AIAnalyzer] Flushed ${batch.length} logs successfully.`);
+    } catch (error) {
+      this.consoler(error);
+      console.error(
+        "[AIAnalyzer] Failed to flush batch:",
+        error?.message || error?.response?.data?.message
+      );
+      // Retry once after short delay
+      // setTimeout(() => {
+      //   this.queue.unshift(...batch);
+      // }, 2000);
+    } finally {
+      this.isFlushing = false;
+    }
+  };
+
+  async shutdown() {
+    if (this.flushTimer) clearTimeout(this.flushTimer);
+    if (this.queue.length > 0) await this.flushQueue();
+    console.log("[AIAnalyzer] SDK shutdown gracefully.");
+  }
 }

@@ -7,7 +7,7 @@ import { connectDB } from "./config/connnectDb.js";
 import authRouter from "./routes/auth.routes.js";
 import keysRouter from "./routes/keys.routes.js";
 import logRouter from "./routes/log.routes.js";
-const app = express();
+import { app, httpServer } from "./server.js";
 
 app.use(
   cors({
@@ -31,7 +31,7 @@ app.use("/api", authRouter);
 app.use("/api", keysRouter);
 app.use("/api", logRouter);
 
-app.listen(process.env.PORT, async () => {
+httpServer.listen(process.env.PORT, async () => {
   await connectDB();
   console.log(`Server is running on port http://localhost:${process.env.PORT}`);
 });

@@ -4,10 +4,18 @@ const incidentSchema = new mongoose.Schema(
   {
     endpoint: { type: String, required: true }, // e.g., /api/register
     serviceName: { type: String, required: true },
-    errorType: { type: String, required: true }, // e.g., "DatabaseError"
+    errorType: [
+      {
+        name: { type: String, required: true },
+        count: { type: Number, default: 1 },
+        lastSeen: { type: Date, default: Date.now },
+      },
+    ], // e.g., "DatabaseError"
     occurrences: { type: Number, default: 1 }, // how many logs linked
     lastSeen: { type: Date, default: Date.now },
     aiAnalysisId: { type: mongoose.Schema.Types.ObjectId, ref: "AIAnalysis" },
+    complexity: { type: String, required: true },
+    // errorMessage: { type: String, required: true },
     key: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "APIKey",
