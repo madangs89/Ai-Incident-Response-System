@@ -48,7 +48,7 @@ const Incidents = () => {
   );
 
   return (
-    <div className="w-full h-full bg-[#F9FAFB] p-6 overflow-hidden flex flex-col">
+    <div className="w-full h-full bg-[#F9FAFB] overflow-hidden flex flex-col">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-gray-200 rounded-lg shadow-sm px-6 py-4">
         <h1 className="text-2xl font-bold text-[#0F172A]">Incidents</h1>

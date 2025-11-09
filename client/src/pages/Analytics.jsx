@@ -75,7 +75,7 @@ const Analytics = () => {
   ];
 
   return (
-    <div className="w-full h-full bg-white px-10 py-10">
+    <div className="w-full h-full bg-white ">
       <div className="max-w-7xl mx-auto flex flex-col gap-8">
         {/* Header */}
         <div className="flex items-center justify-between">
