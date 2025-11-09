@@ -10,7 +10,7 @@ export const getUserLogEdUserDetails = async (req, res) => {
         success: false,
       });
     }
-    const user = await User.findById(id).populate("currentApiKey");
+    const user = await User.findById(id).populate("currentApiKey").select("-password");
     if (!user) {
       return res.status(404).json({
         message: "User not found",
@@ -128,12 +128,14 @@ export const changePassword = async (req, res) => {
         success: false,
       });
     }
-    const isPassValid = await bcrypt.compare(oldPassword, user.password);
-    if (!isPassValid) {
-      return res.status(400).json({
-        message: "Incorrect password",
-        success: false,
-      });
+    if (user.password) {
+      const isPassValid = await bcrypt.compare(oldPassword, user.password);
+      if (!isPassValid) {
+        return res.status(400).json({
+          message: "Incorrect password",
+          success: false,
+        });
+      }
     }
     const hashedPassWord = await bcrypt.hash(newPassword, 10);
     user.password = hashedPassWord;

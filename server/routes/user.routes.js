@@ -10,7 +10,7 @@ import {
 
 const userRouter = express.Router();
 
-userRouter.get("/details", authMiddleware, getUserLogEdUserDetails);
+userRouter.get("/profile", authMiddleware, getUserLogEdUserDetails);
 userRouter.put("/update", authMiddleware, updateUserDetails);
 userRouter.delete("/delete/:id", deleteUser);
 userRouter.get("/get-all", getAllUsers);

@@ -12,6 +12,7 @@ const generateToken = (user) => {
       userName: user.userName,
       email: user.email,
       avatar: user.avatar,
+      notifications: user.notifications,
     },
     process.env.JWT_SECRET,
     {
@@ -258,7 +259,7 @@ export const gitLogin = async (req, res) => {
     });
     console.log(userRes.data);
 
-    const { avatar_url, name, email , login } = userRes.data;
+    const { avatar_url, name, email, login } = userRes.data;
 
     let finalEmail = email;
 
@@ -281,7 +282,6 @@ export const gitLogin = async (req, res) => {
     }
 
     console.log(finalEmail);
-    
 
     let isUserExits = await User.findOne({ email: finalEmail });
 
