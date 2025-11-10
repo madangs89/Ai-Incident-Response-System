@@ -15,5 +15,5 @@ userRouter.put("/update", authMiddleware, updateUserDetails);
 userRouter.delete("/delete/:id", deleteUser);
 userRouter.get("/get-all", getAllUsers);
 userRouter.put("/change-pass", authMiddleware, changePassword);
-
+// Added
 export default userRouter;
