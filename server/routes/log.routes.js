@@ -3,5 +3,5 @@ import { acceptLog } from "../controllers/logs.controller.js";
 
 const logRouter = express.Router();
 
-logRouter.post("/log/create", acceptLog);
+logRouter.post("/create", acceptLog);
 export default logRouter;

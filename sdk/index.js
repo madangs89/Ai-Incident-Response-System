@@ -126,6 +126,8 @@ export default class AIAnalyzerLogger {
           )
             continue;
           // return first useful frame
+          console.log(file , functionName);
+          
           return { functionName, file, line: lineNo, col: colNo };
         }
       }
