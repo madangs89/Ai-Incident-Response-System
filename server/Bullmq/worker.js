@@ -17,7 +17,6 @@ export const apiLogsWorker = new Worker(
   async (job) => {
     const { log, key } = job.data;
     console.log("Processing Job from:", key, "Log Count:", log.length);
-
     for (let i = 0; i < log.length; i++) {
       // console.log(log[i]);
       const signature = generateSignature(
@@ -27,8 +26,9 @@ export const apiLogsWorker = new Worker(
         log[0]?.metadata?.file
       );
       console.log(signature);
-    }
 
+      // here i will do some logic here if fails
+    }
     return { processed: log.length };
   },
   { connection }

@@ -15,14 +15,15 @@ const incidentSchema = new mongoose.Schema(
       ref: "APIKey",
     },
     signature: { type: String, required: true },
-    // Store ONLY 3 most recent logs for AI reference (ring buffer behavior)
-    samples: [
-      {
-        message: String,
-        stack: String,
-        timestamp: { type: Date, default: Date.now },
-      },
-    ],
+    metadata: {
+      type: Object,
+      required: true,
+    },
+    message: {
+      type: String,
+      required: true,
+    },
+    status: { type: String, default: "active" },
   },
   { timestamps: true }
 );
