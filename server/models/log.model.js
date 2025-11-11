@@ -19,16 +19,28 @@ const logSchema = new mongoose.Schema(
       required: true,
     },
     complexity: {
+      type: Number || String,
+      required: true,
+      default: 1,
+    },
+    level: {
       type: String,
       required: true,
+      default: "High",
+      // enu: ["High", "Medium", "Low"],
     },
-    key: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "APIKey",
+    sdkVersion: {
+      type: String,
+      required: true,
+      default: "1.0.0",
+    },
+    key: { type: String, required: true },
+    createdAt: {
+      type: Date,
+      default: Date.now,
     },
   },
   {
-    timestamps: true,
     ttl: 7 * 24 * 60 * 60, // 7 day
   }
 );

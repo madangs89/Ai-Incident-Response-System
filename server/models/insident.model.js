@@ -11,8 +11,8 @@ const incidentSchema = new mongoose.Schema(
     complexity: { type: String, required: true },
     // errorMessage: { type: String, required: true },
     key: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "APIKey",
+      type: String,
+      required: true,
     },
     signature: { type: String, required: true },
     metadata: {
