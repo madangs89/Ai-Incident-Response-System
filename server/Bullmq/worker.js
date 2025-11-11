@@ -26,8 +26,6 @@ export const apiLogsWorker = new Worker(
         log[0]?.metadata?.file
       );
       console.log(signature);
-
-      // here i will do some logic here if fails
     }
     return { processed: log.length };
   },
