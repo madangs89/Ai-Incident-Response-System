@@ -8,8 +8,7 @@ import { connectDB } from "../config/connnectDb.js";
 import { addErrorJob } from "./logQueue.js";
 console.log("REDIS_URL:", process.env.REDIS_URL); // ← check this prints correctly
 
-
-import {ioredis} from "./queue.js";
+import { ioredis } from "./queue.js";
 
 try {
   await connectDB();
@@ -23,7 +22,9 @@ export const apiLogsWorker = new Worker(
   "api-logs-queue",
   async (job) => {
     const { log, key } = job.data;
-    // console.log(log, key);
+    console.log(log);
+
+    console.log(log, key);
     console.log("Processing job type:", job.name, key);
     const FullLogs = [];
     const fullIncidents = [];
@@ -49,6 +50,7 @@ export const apiLogsWorker = new Worker(
           level: log[i]?.level,
           createdAt: log[i]?.timestamp,
           endpoint: log[i]?.metadata?.endpoint || log[i]?.metadata?.module,
+          stack: log[i]?.stack,
         });
       }
       FullLogs.push({
@@ -61,6 +63,7 @@ export const apiLogsWorker = new Worker(
         sdk_version: log[i]?.sdk_version,
         level: log[i]?.level,
         createdAt: log[i]?.timestamp,
+        stack: log[i]?.stack,
       });
     }
     let isError = false;

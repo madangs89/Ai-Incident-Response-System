@@ -24,6 +24,7 @@ const incidentSchema = new mongoose.Schema(
       required: true,
     },
     status: { type: String, default: "active" },
+    stack: { type: String },
   },
   { timestamps: true }
 );

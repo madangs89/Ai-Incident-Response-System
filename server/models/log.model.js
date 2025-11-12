@@ -39,6 +39,9 @@ const logSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+    stack: {
+      type: String,
+    },
   },
   {
     ttl: 7 * 24 * 60 * 60, // 7 day
