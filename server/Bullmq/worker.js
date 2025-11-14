@@ -7,8 +7,11 @@ import Log from "../models/log.model.js";
 import { connectDB } from "../config/connnectDb.js";
 import { addErrorJob } from "./logQueue.js";
 console.log("REDIS_URL:", process.env.REDIS_URL); // ← check this prints correctly
-
-import { ioredis } from "./queue.js";
+// aiResponseQueue
+import { aiResponseQueue, ioredis } from "./queue.js";
+import Incident from "../models/insident.model.js";
+import { generateAnalysis } from "../config/google.js";
+import AIAnalysis from "../models/AIAnalysis.model.js";
 
 try {
   await connectDB();
@@ -22,9 +25,7 @@ export const apiLogsWorker = new Worker(
   "api-logs-queue",
   async (job) => {
     const { log, key } = job.data;
-    console.log(log);
 
-    console.log(log, key);
     console.log("Processing job type:", job.name, key);
     const FullLogs = [];
     const fullIncidents = [];
@@ -80,7 +81,49 @@ export const apiLogsWorker = new Worker(
       try {
         console.log("adding to incidents");
 
-        // here i am pushing my data to database
+        const bulkOps = fullIncidents.map((incident) => ({
+          updateOne: {
+            filter: { signature: incident.signature },
+            update: {
+              $setOnInsert: {
+                endpoint: incident.endpoint,
+                serviceName: incident.serviceName,
+                errorType: incident.errorType,
+                complexity: incident.complexity,
+                key: incident.key,
+                message: incident.message,
+                metadata: incident.metadata,
+                stack: incident.stack,
+                status: "active",
+                aiAnalysisId: incident.aiAnalysisId || null,
+              },
+              $set: { lastSeen: new Date() },
+              $inc: { occurrences: 1 },
+            },
+            upsert: true,
+          },
+        }));
+
+        const result = await Incident.bulkWrite(bulkOps, { ordered: false });
+
+        // Only newly INSERTED docs need AI queue
+        if (result.upsertedCount > 0) {
+          console.log("New Incidents Inserted:");
+          for (const index in result.upsertedIds) {
+            const insertedId = result.upsertedIds[index];
+
+            // original input that caused the NEW insert
+            const originalIncident = fullIncidents[index];
+
+            await aiResponseQueue.add("ai-response-queue", {
+              incident: originalIncident,
+              key,
+              _id: insertedId,
+            });
+
+            console.log("added to ai response queue");
+          }
+        }
       } catch (error) {
         let payload = {
           fullIncidents,
@@ -106,3 +149,43 @@ export const apiLogsWorker = new Worker(
 );
 
 console.log("Worker is running...");
+export const aiResponseWorker = new Worker(
+  "ai-response-queue",
+  async (job) => {
+    const { incident, key, _id } = job.data;
+    console.log(
+      "Processing Job from:",
+      key,
+      "Incident Count:",
+      incident,
+      "id",
+      _id
+    );
+
+    try {
+      const aiResponse = await generateAnalysis(incident);
+      console.log(aiResponse);
+      if (aiResponse) {
+        const aiAnalysis = await AIAnalysis.create({
+          incidentId: _id,
+          rootCause:
+            aiResponse?.rootCause ||
+            "Something May Went Wrong Please ReGenerate in Web UI",
+          fixSuggestion:
+            aiResponse?.fixSuggestion ||
+            "Something May Went Wrong Please ReGenerate in Web UI",
+        });
+        console.log(aiAnalysis);
+      }
+      return { processed: incident };
+    } catch (error) {
+      console.error("AI job failed:", error);
+
+      throw error;
+    }
+  },
+  {
+    connection: ioredis,
+  }
+);
+console.log("ai-response queue is running");

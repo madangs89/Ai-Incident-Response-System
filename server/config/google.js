@@ -186,5 +186,6 @@ JSON
     // console.log(response.text);
   } catch (error) {
     console.log(error);
+    throw new Error(error);
   }
 };

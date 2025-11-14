@@ -4,7 +4,7 @@ import IORedis from "ioredis";
 import pkg from "bullmq";
 const { Queue } = pkg;
 
-export const ioredis = new IORedis(process.env.REDIS_URL , {
+export const ioredis = new IORedis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
   tls: {},
@@ -12,6 +12,13 @@ export const ioredis = new IORedis(process.env.REDIS_URL , {
 
 const defaultJobOptions = {
   attempts: 1,
+  backoff: { type: "exponential", delay: 2000 },
+  removeOnComplete: { age: 3600, count: 5000 },
+  removeOnFail: { age: 86400, count: 1000 },
+  timeout: 30_000,
+};
+const aiResponseQueueOptions = {
+  attempts: 3,
   backoff: { type: "exponential", delay: 2000 },
   removeOnComplete: { age: 3600, count: 5000 },
   removeOnFail: { age: 86400, count: 1000 },
@@ -26,7 +33,7 @@ export const apiLogsQueue = new Queue("api-logs-queue", {
 
 export const aiResponseQueue = new Queue("ai-response-queue", {
   connection: ioredis,
-  defaultJobOptions,
+  aiResponseQueueOptions,
 });
 
 export const messagingQueue = new Queue("messaging-queue", {

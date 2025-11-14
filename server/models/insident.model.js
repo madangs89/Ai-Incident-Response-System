@@ -28,7 +28,7 @@ const incidentSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-
+incidentSchema.index({ signature: 1 });
 const Incident = mongoose.model("Incident", incidentSchema);
 
 export default Incident;
