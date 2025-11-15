@@ -18,12 +18,11 @@ export const generateAnalysis = async (data) => {
       return;
     }
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5",
       contents: JSON.stringify(data),
       config: {
         systemInstruction: `
-        
-
+      
 🧩 Purpose
 
 You are a specialized production-grade AI model integrated into a real-time incident detection and analytics system.

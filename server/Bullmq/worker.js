@@ -164,8 +164,11 @@ export const aiResponseWorker = new Worker(
 
     try {
       const aiResponse = await generateAnalysis(incident);
-      console.log(aiResponse);
+      console.log("top", aiResponse);
+      console.log(aiResponse?.rootCause);
+
       if (aiResponse) {
+        console.log("in", aiResponse);
         const aiAnalysis = await AIAnalysis.create({
           incidentId: _id,
           rootCause:
@@ -175,7 +178,7 @@ export const aiResponseWorker = new Worker(
             aiResponse?.fixSuggestion ||
             "Something May Went Wrong Please ReGenerate in Web UI",
         });
-        console.log(aiAnalysis);
+        console.log("ai analysis", aiAnalysis);
       }
       return { processed: incident };
     } catch (error) {
