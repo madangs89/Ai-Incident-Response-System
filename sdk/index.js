@@ -25,6 +25,15 @@ export default class AIAnalyzerLogger {
     this.flushInterval = 5 * 1000; // 5 seconds
     this.batchSize = 10;
     this.flushTimer = null;
+    this.metricQueue = [];
+    this.metricInterval = 10 * 1000;
+    this.isMetricFlushing = false;
+
+    setInterval(() => {
+      if (this.isMetricFlushing == false && this.metricQueue.length > 0) {
+        this.flushMetric();
+      }
+    }, this.metricInterval);
   }
 
   nowIso() {
@@ -126,8 +135,8 @@ export default class AIAnalyzerLogger {
           )
             continue;
           // return first useful frame
-          console.log(file , functionName);
-          
+          console.log(file, functionName);
+
           return { functionName, file, line: lineNo, col: colNo };
         }
       }
@@ -498,12 +507,12 @@ export default class AIAnalyzerLogger {
         duration,
       });
 
-      // this.captureMessage("API_METRIC", "INFO", {
-      //   endpoint: req.originalUrl,
-      //   method: req.method,
-      //   status: res.statusCode,
-      //   duration,
-      // });
+      this.metricQueue.push({
+        endpoint: req.originalUrl,
+        method: req.method,
+        status: res.statusCode,
+        duration,
+      });
 
       if (res.statusCode >= 500) {
         // 🟥 System / server error
@@ -654,7 +663,7 @@ export default class AIAnalyzerLogger {
     if (this.isFlushing || this.queue.length <= 0) {
       return;
     }
-    const batch = this.queue.splice(0, this.batchSize);
+    const batch = this.queue.splice(0, this.queue.length);
     try {
       this.isFlushing = true;
       const { data } = await axios.post(
@@ -679,6 +688,44 @@ export default class AIAnalyzerLogger {
       // }, 2000);
     } finally {
       this.isFlushing = false;
+    }
+  };
+
+  flushMetric = async () => {
+    try {
+      if (!this.isVerified) {
+        this.consoler("API Key is not verified");
+        return;
+      }
+
+      if (this.isMetricFlushing || this.metricQueue.length <= 0) {
+        return;
+      }
+
+      this.isMetricFlushing = true;
+      const batch = this.metricQueue.splice(0, this.metricQueue.length);
+      const { data } = await axios.post(
+        `${this.baseUrl}/api/metric/create`,
+        batch,
+        {
+          headers: { "x-api-key": this.apiKey },
+          timeout: 5000,
+        }
+      );
+      this.consoler(data);
+      this.consoler(
+        `[AIAnalyzer] Flushed ${batch.length} metrics successfully.`
+      );
+    } catch (error) {
+      console.log(error);
+      
+      this.consoler(error.error?.response?.data?.message|| error.message);
+      console.error(
+        "[AIAnalyzer] Failed to flush batch metric:",
+        error?.message || error?.response?.data?.message
+      );
+    } finally {
+      this.isMetricFlushing = false;
     }
   };
 

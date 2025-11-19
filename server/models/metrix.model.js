@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 
 const metricSchema = new mongoose.Schema(
   {
-    serviceName: {
+    apiKey: {
       type: String,
       required: true,
     },

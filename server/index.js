@@ -10,6 +10,7 @@ import logRouter from "./routes/log.routes.js";
 import { app, httpServer } from "./server.js";
 import userRouter from "./routes/user.routes.js";
 import { generateAnalysis } from "./config/google.js";
+import metricRouter from "./routes/metrix.routes.js";
 
 app.use(
   cors({
@@ -32,6 +33,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRouter);
 app.use("/api/key", keysRouter);
 app.use("/api/log", logRouter);
+app.use("/api/metric", metricRouter);
 app.use("/api/user", userRouter);
 
 httpServer.listen(process.env.PORT, async () => {
