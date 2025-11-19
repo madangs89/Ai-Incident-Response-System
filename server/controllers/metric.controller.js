@@ -91,11 +91,12 @@ export const MetricAccept = async (req, res) => {
             },
           },
         },
+        // Replace $setOnInsert with $set + $ifNull
         {
-          $setOnInsert: {
-            apiKey,
-            endpoint: item.endpoint,
-            method: item.method,
+          $set: {
+            apiKey: { $ifNull: ["$apiKey", apiKey] },
+            endpoint: { $ifNull: ["$endpoint", item.endpoint] },
+            method: { $ifNull: ["$method", item.method] },
           },
         },
       ];
