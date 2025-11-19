@@ -25,11 +25,8 @@ export const apiLogsWorker = new Worker(
   "api-logs-queue",
   async (job) => {
     const { log, key } = job.data;
-
-    console.log("Processing job type:", job.name, key);
     const FullLogs = [];
     const fullIncidents = [];
-    console.log("Processing Job from:", key, "Log Count:", log.length);
     for (let i = 0; i < log.length; i++) {
       // console.log(log[i]);
       const signature = generateSignature(
@@ -108,13 +105,12 @@ export const apiLogsWorker = new Worker(
 
         // Only newly INSERTED docs need AI queue
         if (result.upsertedCount > 0) {
-          console.log("New Incidents Inserted:");
           for (const index in result.upsertedIds) {
             const insertedId = result.upsertedIds[index];
 
             // original input that caused the NEW insert
             const originalIncident = fullIncidents[index];
-
+            console.log("New Incidents Recorded So called AI Response Queue");
             await aiResponseQueue.add("ai-response-queue", {
               incident: originalIncident,
               key,
@@ -164,9 +160,6 @@ export const aiResponseWorker = new Worker(
 
     try {
       const aiResponse = await generateAnalysis(incident);
-      console.log("top", aiResponse);
-      console.log(aiResponse?.rootCause);
-
       if (aiResponse) {
         console.log("in", aiResponse);
         const aiAnalysis = await AIAnalysis.create({
@@ -178,7 +171,6 @@ export const aiResponseWorker = new Worker(
             aiResponse?.fixSuggestion ||
             "Something May Went Wrong Please ReGenerate in Web UI",
         });
-        console.log("ai analysis", aiAnalysis);
       }
       return { processed: incident };
     } catch (error) {

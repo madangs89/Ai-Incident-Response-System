@@ -18,7 +18,7 @@ export const generateAnalysis = async (data) => {
       return;
     }
     const response = await ai.models.generateContent({
-      model: "gemini-2.5",
+      model: "gemini-2.5-flash",
       contents: JSON.stringify(data),
       config: {
         systemInstruction: `
@@ -180,8 +180,7 @@ JSON
       .trim();
 
     result = JSON.parse(result);
-    console.log(result);
-    // console.log(response.text);
+    return result;
   } catch (error) {
     console.log(error);
     throw new Error(error);

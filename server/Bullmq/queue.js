@@ -19,7 +19,7 @@ const defaultJobOptions = {
 };
 const aiResponseQueueOptions = {
   attempts: 3,
-  backoff: { type: "exponential", delay: 2000 },
+  backoff: { type: "exponential", delay: 10000 },
   removeOnComplete: { age: 3600, count: 5000 },
   removeOnFail: { age: 86400, count: 1000 },
   timeout: 30_000,
@@ -30,7 +30,6 @@ export const apiLogsQueue = new Queue("api-logs-queue", {
   connection: ioredis,
   defaultJobOptions,
 });
-
 export const aiResponseQueue = new Queue("ai-response-queue", {
   connection: ioredis,
   aiResponseQueueOptions,

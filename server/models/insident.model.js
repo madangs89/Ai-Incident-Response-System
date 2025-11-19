@@ -23,7 +23,7 @@ const incidentSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    status: { type: String, default: "active" },
+    status: { type: String, default: "active", enum: ["active", "solved"] },
     stack: { type: String },
   },
   { timestamps: true }
