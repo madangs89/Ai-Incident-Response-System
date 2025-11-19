@@ -1,4 +1,5 @@
 import APIKey from "../models/apikeys.model.js";
+import Metric from "../models/metrix.model.js";
 
 export const MetricAccept = async (req, res) => {
   try {
@@ -39,6 +40,7 @@ export const MetricAccept = async (req, res) => {
           method,
           status,
           count: 1,
+          errorCount: status >= 400 && status <= 599 ? 1 : 0,
           totalDuration: duration,
           averageDuration: duration,
         };
@@ -47,15 +49,73 @@ export const MetricAccept = async (req, res) => {
         outputObj[endpoint].totalDuration += duration;
         outputObj[endpoint].averageDuration =
           outputObj[endpoint].totalDuration / outputObj[endpoint].count;
+        if (status >= 400 && status <= 599) {
+          outputObj[endpoint].errorCount++;
+        }
       }
     });
 
     console.log(outputObj);
 
+    const bulkOps = Object.values(outputObj).map((item) => {
+      const filters = {
+        apiKey,
+        endpoint: item.endpoint,
+        method: item.method,
+      };
+
+      const countInc = item.count;
+      const errorCountInc = item.errorCount;
+      const totalDurationInc = item.totalDuration;
+
+      const updatePipeline = [
+        {
+          $set: {
+            totalDuration: {
+              $add: [{ $ifNull: ["$totalDuration", 0] }, totalDurationInc],
+            },
+            count: { $add: [{ $ifNull: ["$count", 0] }, countInc] },
+            errorCount: {
+              $add: [{ $ifNull: ["$errorCount", 0] }, errorCountInc],
+            },
+          },
+        },
+        {
+          $set: {
+            avgDuration: {
+              $cond: [
+                { $eq: ["$count", 0] },
+                0,
+                { $divide: ["$totalDuration", "$count"] },
+              ],
+            },
+          },
+        },
+        {
+          $setOnInsert: {
+            apiKey,
+            endpoint: item.endpoint,
+            method: item.method,
+          },
+        },
+      ];
+
+      return {
+        updateOne: {
+          filter: filters,
+          update: updatePipeline,
+          upsert: true,
+        },
+      };
+    });
+
+    const bulkResult = await Metric.bulkWrite(bulkOps, { ordered: false });
+
+    console.log("bulkWrite result:", bulkResult);
     return res.status(200).json({
-      message: "API key verified successfully",
+      message: "Metrics processed",
       success: true,
-      valid: true,
+      result: bulkResult,
     });
   } catch (error) {
     console.log(error);

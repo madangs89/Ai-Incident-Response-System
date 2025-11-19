@@ -4,7 +4,7 @@ const metricSchema = new mongoose.Schema(
   {
     apiKey: {
       type: String,
-      required: true,
+      index: true,
     },
     endpoint: {
       type: String,
@@ -12,10 +12,6 @@ const metricSchema = new mongoose.Schema(
     },
     method: {
       type: String,
-      required: true,
-    },
-    status: {
-      type: Number,
       required: true,
     },
     count: { type: Number, default: 0 },
@@ -28,6 +24,7 @@ const metricSchema = new mongoose.Schema(
   }
 );
 
+metricSchema.index({ apiKey: 1, endpoint: 1, method: 1 });
 const Metric = mongoose.model("Metric", metricSchema);
 
 export default Metric;
