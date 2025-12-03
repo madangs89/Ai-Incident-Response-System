@@ -11,6 +11,8 @@ import { app, httpServer } from "./server.js";
 import userRouter from "./routes/user.routes.js";
 import { generateAnalysis } from "./config/google.js";
 import metricRouter from "./routes/metrix.routes.js";
+import incidentRouter from "./routes/incident.routes.js";
+import aiRoutes from "./routes/aiAnalysis.routes.js";
 
 app.use(
   cors({
@@ -35,6 +37,8 @@ app.use("/api/key", keysRouter);
 app.use("/api/log", logRouter);
 app.use("/api/metric", metricRouter);
 app.use("/api/user", userRouter);
+app.use("/api/incident", incidentRouter);
+app.use("/api/ai", aiRoutes);
 
 httpServer.listen(process.env.PORT, async () => {
   await connectDB();

@@ -496,6 +496,10 @@ export default class AIAnalyzerLogger {
     }
 
     const start = Date.now();
+    let bodySample = "";
+    try {
+      bodySample = JSON.stringify(req.body)?.slice(0, 500) || "";
+    } catch (e) {}
 
     // 🧩 Wrap response finish for metrics
     res.on("finish", async () => {
@@ -505,13 +509,31 @@ export default class AIAnalyzerLogger {
         method: req.method,
         status: res.statusCode,
         duration,
+        timestamp: new Date().toISOString(),
+        bodySample,
+        normalized_path: req?.path,
+        query_params_count: Object.keys(req.query || {}).length,
+        headers: {
+          "user-agent": req.headers["user-agent"] || "",
+          "content-type": req.headers["content-type"] || "",
+        },
       });
 
       this.metricQueue.push({
         endpoint: req.originalUrl,
+        timestamp: new Date().toISOString(),
         method: req.method,
         status: res.statusCode,
+        normalized_path: req?.path,
+        query_params_count: Object.keys(req.query || {}).length,
+        headers: {
+          "user-agent": req.headers["user-agent"] || "",
+          "content-type": req.headers["content-type"] || "",
+        },
         duration,
+        bodySample,
+        is_json: (req.headers["content-type"] || "").includes("json"),
+        client_ip: req?.ip || req.headers["x-forwarded-for"] || "",
       });
 
       if (res.statusCode >= 500) {
@@ -718,8 +740,8 @@ export default class AIAnalyzerLogger {
       );
     } catch (error) {
       console.log(error);
-      
-      this.consoler(error.error?.response?.data?.message|| error.message);
+
+      this.consoler(error.error?.response?.data?.message || error.message);
       console.error(
         "[AIAnalyzer] Failed to flush batch metric:",
         error?.message || error?.response?.data?.message

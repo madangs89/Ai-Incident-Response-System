@@ -25,6 +25,8 @@ export const MetricAccept = async (req, res) => {
     }
 
     const data = req.body;
+    console.log(data);
+    
 
     if (data.length == 0) {
       return res.status(400).json({ message: "Log is empty", success: false });

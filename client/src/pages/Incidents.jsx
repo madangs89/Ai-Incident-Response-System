@@ -1,42 +1,64 @@
-import React, { useState } from "react";
+import axios from "axios";
+import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
+import { useSelector } from "react-redux";
 
 const Incidents = () => {
   const [selectedIncident, setSelectedIncident] = useState(null);
 
-  const incidents = [
-    {
-      id: 1,
-      timestamp: "2024-05-21 14:35:12 UTC",
-      service: "auth-service",
-      message: "NullPointerException at com.example.UserService",
-      severity: "Critical",
-      status: "Active",
-    },
-    {
-      id: 2,
-      timestamp: "2024-05-21 14:32:01 UTC",
-      service: "payment-api",
-      message: "502 Bad Gateway",
-      severity: "Critical",
-      status: "Active",
-    },
-    {
-      id: 3,
-      timestamp: "2024-05-21 13:55:49 UTC",
-      service: "user-profile-svc",
-      message: "API rate limit exceeded",
-      severity: "Warning",
-      status: "Resolved",
-    },
-    {
-      id: 4,
-      timestamp: "2024-05-21 13:40:22 UTC",
-      service: "notification-worker",
-      message: "Timeout executing job",
-      severity: "Warning",
-      status: "Resolved",
-    },
-  ];
+  const [aiRes, setAiRes] = useState({});
+
+  const selectedKey = useSelector((state) => state.user.selectedKey);
+
+  const [incidents, setIncidents] = useState([]);
+
+  useEffect(() => {
+    if (selectedKey) {
+      (async () => {
+        try {
+          let key = selectedKey.split(":")[1];
+          const { data } = await axios.get(
+            `${
+              import.meta.env.VITE_BACKEND_URL
+            }/api/incident/get-incidents/${key}`,
+            {
+              withCredentials: true,
+            }
+          );
+          console.log(data);
+          if (data.success) {
+            setIncidents(data.data);
+          }
+        } catch (error) {
+          toast.error("Unable to fetch incidents");
+        }
+      })();
+    }
+  }, [selectedKey]);
+
+  useEffect(() => {
+    if (selectedIncident?._id) {
+      (async () => {
+        try {
+          const aiAnalysisId = selectedIncident?.aiAnalysisId;
+          if (aiAnalysisId) {
+            const aiData = await axios.get(
+              `${
+                import.meta.env.VITE_BACKEND_URL
+              }/api/ai/get-ai/${aiAnalysisId}`,
+              {
+                withCredentials: true,
+              }
+            );
+
+            console.log({ aiData });
+          }
+        } catch (error) {
+          console.log(error);
+        }
+      })();
+    }
+  }, [selectedIncident]);
 
   const getBadge = (label, color) => (
     <div
@@ -61,15 +83,21 @@ const Incidents = () => {
       <div className="flex gap-3 mt-4 bg-white border border-gray-200 rounded-lg px-6 py-3">
         <button className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white border border-gray-200 pl-3 pr-2 text-gray-700 hover:bg-gray-100">
           <p className="text-sm font-medium">Severity: All</p>
-          <span className="material-symbols-outlined text-base">expand_more</span>
+          <span className="material-symbols-outlined text-base">
+            expand_more
+          </span>
         </button>
         <button className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white border border-gray-200 pl-3 pr-2 text-gray-700 hover:bg-gray-100">
           <p className="text-sm font-medium">Service: All</p>
-          <span className="material-symbols-outlined text-base">expand_more</span>
+          <span className="material-symbols-outlined text-base">
+            expand_more
+          </span>
         </button>
         <button className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white border border-gray-200 pl-3 pr-2 text-gray-700 hover:bg-gray-100">
           <p className="text-sm font-medium">Time Range: Last 24h</p>
-          <span className="material-symbols-outlined text-base">expand_more</span>
+          <span className="material-symbols-outlined text-base">
+            expand_more
+          </span>
         </button>
       </div>
 
@@ -96,22 +124,30 @@ const Incidents = () => {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
-            {incidents.map((item) => (
+            {incidents.map((item, index) => (
               <tr
-                key={item.id}
+                key={index}
                 className="hover:bg-cyan-500/10 cursor-pointer transition-all"
                 onClick={() => setSelectedIncident(item)}
               >
-                <td className="px-4 py-3 text-gray-500">{item.timestamp}</td>
-                <td className="px-4 py-3 text-gray-500">{item.service}</td>
+                <td className="px-4 py-3 text-gray-500">{item.createdAt}</td>
+                <td className="px-4 py-3 text-gray-500">{item.serviceName}</td>
                 <td className="px-4 py-3 text-gray-800">{item.message}</td>
                 <td className="px-4 py-3">
                   {getBadge(
-                    item.severity,
-                    item.severity === "Critical"
+                    item.complexity == 5
+                      ? "Critical"
+                      : item.complexity === 4
+                      ? "High"
+                      : item.complexity === 3
+                      ? "Medium"
+                      : "Low",
+                    item.complexity == 5
                       ? "red"
-                      : item.severity === "Warning"
-                      ? "amber"
+                      : item.complexity === 4
+                      ? "orange"
+                      : item.complexity === 3
+                      ? "yellow"
                       : "gray"
                   )}
                 </td>
@@ -133,8 +169,8 @@ const Incidents = () => {
 
       {/* Fullscreen Modal */}
       {selectedIncident && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white w-full h-full max-w-5xl rounded-lg flex flex-col overflow-hidden shadow-xl">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-white w-full h-[90%] max-w-5xl rounded-lg flex flex-col overflow-hidden shadow-xl">
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-gray-200 p-4">
               <div>
@@ -149,7 +185,7 @@ const Incidents = () => {
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-black"
                 onClick={() => setSelectedIncident(null)}
               >
-                <span className="material-symbols-outlined text-xl">close</span>
+                <span className="material-symbols-outlined text-xl">X</span>
               </button>
             </div>
 
@@ -209,8 +245,7 @@ const Incidents = () => {
                       Stack Trace
                     </span>
                     <pre className="overflow-x-auto text-gray-600">
-                      goroutine 123 [running]:
-                      main.handleChargeRequest(...)
+                      goroutine 123 [running]: main.handleChargeRequest(...)
                       /app/handlers/charge_handler.go:112 +0x12a
                       main.processPayment(...)
                       /app/services/payment_service.go:45 +0x5f

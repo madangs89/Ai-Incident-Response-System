@@ -3,9 +3,10 @@ import { Plus, Clipboard, ArrowRight, Puzzle, X, Trash2 } from "lucide-react";
 import axios from "axios";
 import Loader from "../Components/Loader";
 import { toast } from "react-hot-toast";
+import { useDispatch, useSelector } from "react-redux";
+import { pushKey, setKeys } from "../redux/userSlice";
 
 const Services = () => {
-  const [apiKeys, setApiKeys] = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -13,6 +14,10 @@ const Services = () => {
   const [revokeModal, setRevokeModal] = useState(false);
   const [selectedKey, setSelectedKey] = useState(null);
   const [revokeLoading, setRevokeLoading] = useState(false);
+
+  const apiKeys = useSelector((state) => state.user.keys);
+
+  const dispatch = useDispatch();
 
   // ✅ Generate new API key
   const handleGenerateKey = async () => {
@@ -28,15 +33,17 @@ const Services = () => {
 
       if (data.success) {
         toast.success("API key generated successfully");
-        setApiKeys((prev) => [
-          {
-            _id: data?.data?._id,
-            projectName: data?.data?.projectName,
-            key: data?.data?.key,
-            totalAnalyzedLogs: 0,
-          },
-          ...prev,
-        ]);
+  
+        dispatch(
+          pushKey(
+            {
+              _id: data?.data?._id,
+              projectName: data?.data?.projectName,
+              key: data?.data?.key,
+              totalAnalyzedLogs: 0,
+            },
+          )
+        );
         setShowModal(false);
         setProjectName("");
       }
@@ -48,7 +55,7 @@ const Services = () => {
     }
   };
 
-  // ✅ Fetch API Keys
+  // // ✅ Fetch API Keys
   useEffect(() => {
     (async () => {
       try {
@@ -57,7 +64,7 @@ const Services = () => {
           `${import.meta.env.VITE_BACKEND_URL}/api/key/get`,
           { withCredentials: true }
         );
-        if (data.success) setApiKeys(data?.data || []);
+        if (data.success) dispatch(setKeys(data?.data || []));
       } catch (error) {
         toast.error(error?.response?.data?.message || "Something went wrong");
       } finally {
@@ -77,7 +84,7 @@ const Services = () => {
 
       if (data.success) {
         toast.success("API key revoked successfully");
-        setApiKeys((prev) => prev.filter((k) => k._id !== selectedKey._id));
+        dispatch(setKeys(apiKeys.filter((k) => k._id !== selectedKey._id)));
         setRevokeModal(false);
       } else {
         toast.error(data.message || "Failed to revoke key");
