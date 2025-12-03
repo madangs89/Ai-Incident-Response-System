@@ -9,7 +9,7 @@ export const getAiAnalysis = async (req, res) => {
         success: false,
       });
     }
-    const aiData = await AIAnalysis.findById(id);
+    const aiData = await AIAnalysis.findOne({ incidentId: id });
     if (aiData) {
       return res.status(200).json({
         message: "AI Analysis fetched successfully",

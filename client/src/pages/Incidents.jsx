@@ -37,10 +37,12 @@ const Incidents = () => {
   }, [selectedKey]);
 
   useEffect(() => {
+    console.log(selectedIncident);
+
     if (selectedIncident?._id) {
       (async () => {
         try {
-          const aiAnalysisId = selectedIncident?.aiAnalysisId;
+          const aiAnalysisId = selectedIncident?._id;
           if (aiAnalysisId) {
             const aiData = await axios.get(
               `${
@@ -50,11 +52,16 @@ const Incidents = () => {
                 withCredentials: true,
               }
             );
-
-            console.log({ aiData });
+            setAiRes(aiData.data.data);
           }
         } catch (error) {
           console.log(error);
+          toast.error("Unable to fetch ai analysis");
+          setAiRes({
+            aiModel: "",
+            rootCause: "Unable to fetch root cause",
+            fixSuggestion: "Unable to fetch fix suggestion",
+          });
         }
       })();
     }
@@ -178,7 +185,7 @@ const Incidents = () => {
                   {selectedIncident.message}
                 </h2>
                 <p className="text-sm text-gray-500">
-                  from service: {selectedIncident.service}
+                  from service: {selectedIncident.serviceName}
                 </p>
               </div>
               <button
@@ -196,11 +203,7 @@ const Incidents = () => {
                   AI Root Cause Analysis
                 </h3>
                 <div className="bg-gray-100 rounded-lg p-4 text-sm text-gray-700 leading-relaxed">
-                  The AI analysis indicates a service dependency failure. The
-                  `payment-api` service failed to connect to the upstream
-                  `transaction-processor` service, which was unresponsive. This
-                  is likely due to a recent deployment on the processor service
-                  or a network configuration issue between the services.
+                  {aiRes?.rootCause}
                 </div>
               </div>
 
@@ -209,21 +212,16 @@ const Incidents = () => {
                   AI Suggested Fix
                 </h3>
                 <div className="bg-gray-100 rounded-lg p-4 text-sm text-gray-700">
-                  <p className="mb-3">
-                    1. Check the health status of the `transaction-processor`
-                    service immediately.
-                  </p>
-                  <p className="mb-3">
-                    2. If the service is down, investigate its deployment logs
-                    for errors during its last update.
-                  </p>
-                  <p>
-                    3. As a temporary measure, consider rolling back the
-                    `transaction-processor` to its previous stable version:
-                  </p>
-                  <pre className="mt-2 bg-gray-200 rounded p-3 text-xs font-mono text-gray-700 overflow-x-auto">
-                    kubectl rollout undo deployment/transaction-processor
-                  </pre>
+                  {aiRes?.fixSuggestion &&
+                    aiRes?.fixSuggestion?.split(".").map((line, index) => {
+                      return (
+                        line.length > 0 && (
+                          <p key={index} className="mb-3">
+                            {index + 1}. {line}
+                          </p>
+                        )
+                      );
+                    })}
                 </div>
               </div>
 
@@ -234,21 +232,22 @@ const Incidents = () => {
                 <div className="bg-gray-100 rounded-lg p-4 text-xs text-gray-700 font-mono">
                   <div className="flex border-b border-gray-200 py-2">
                     <span className="w-28 text-gray-500">Endpoint</span>
-                    <span>POST /api/v1/charge</span>
+                    <span>{selectedIncident?.metadata?.method} {selectedIncident?.endpoint}</span>
                   </div>
                   <div className="flex border-b border-gray-200 py-2">
                     <span className="w-28 text-gray-500">File</span>
-                    <span>/app/handlers/charge_handler.go:112</span>
+                    <span>{selectedIncident?.metadata?.caller?.file}:{selectedIncident?.metadata?.caller?.line}</span>
+                  </div>
+                  <div className="flex border-b border-gray-200 py-2">
+                    <span className="w-28 text-gray-500">Function</span>
+                    <span>{selectedIncident?.metadata?.caller?.function}</span>
                   </div>
                   <div className="pt-2">
                     <span className="w-28 text-gray-500 block mb-1">
                       Stack Trace
                     </span>
                     <pre className="overflow-x-auto text-gray-600">
-                      goroutine 123 [running]: main.handleChargeRequest(...)
-                      /app/handlers/charge_handler.go:112 +0x12a
-                      main.processPayment(...)
-                      /app/services/payment_service.go:45 +0x5f
+                     {selectedIncident?.stack}
                     </pre>
                   </div>
                 </div>

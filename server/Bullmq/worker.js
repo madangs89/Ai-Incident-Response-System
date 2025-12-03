@@ -116,7 +116,6 @@ export const apiLogsWorker = new Worker(
               key,
               _id: insertedId,
             });
-
             console.log("added to ai response queue");
           }
         }
@@ -171,6 +170,8 @@ export const aiResponseWorker = new Worker(
             aiResponse?.fixSuggestion ||
             "Something May Went Wrong Please ReGenerate in Web UI",
         });
+
+        
       }
       return { processed: incident };
     } catch (error) {
