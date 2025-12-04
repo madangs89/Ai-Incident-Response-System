@@ -43,3 +43,47 @@ export const getAllIncidents = async (req, res) => {
     });
   }
 };
+
+export const markIncidentAsSolved = async (req, res) => {
+  try {
+    const { incidentId } = req.params;
+
+    const user = req.user;
+
+    if (!user) {
+      return res.status(400).json({
+        message: "User information is missing",
+        success: false,
+      });
+    }
+
+    if (!incidentId) {
+      return res.status(400).json({
+        message: "Incident ID is missing",
+        success: false,
+      });
+    }
+
+    const incident = await Incident.findById(incidentId);
+
+    if (!incident) {
+      return res.status(404).json({
+        message: "Incident not found",
+        success: false,
+      });
+    }
+    incident.status = "solved";
+    await incident.save();
+    return res.status(200).json({
+      message: "Incident marked as solved successfully",
+      success: true,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Server Issue while updating incident status",
+      success: false,
+    });
+  }
+};
+
+
