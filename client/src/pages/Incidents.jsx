@@ -82,7 +82,7 @@ const Incidents = () => {
       className={`inline-flex items-center gap-1.5 rounded-full bg-${color}-500/10 px-2 py-1 text-xs font-medium text-${color}-600`}
     >
       <div className={`size-1.5 rounded-full bg-${color}-500`}></div>
-      {label}
+      {label.toUpperCase()}
     </div>
   );
 
@@ -217,7 +217,7 @@ const Incidents = () => {
                       item.status,
                       item.status === "Active"
                         ? "blue"
-                        : item.status === "Resolved"
+                        : item.status === "solved"
                         ? "green"
                         : "gray"
                     )}

@@ -18,20 +18,21 @@ export default function Navbar() {
     console.log(e.target.value);
 
     let key = e.target.value.split(":")[1];
-
+    let value = e.target.value;
     try {
       const { data } = await axios.put(
-        `${import.meta.env.VITE_BACKEND_URL}/api/user/set-api-key/${key}/${
-          e.target.value
-        }`,
+        `${
+          import.meta.env.VITE_BACKEND_URL
+        }/api/user/set-api-key/${key}/${value}`,
         {},
         {
           withCredentials: true,
         }
       );
       console.log(data);
+      dispatch(setSelectedKey(value));
       if (data.success) {
-        dispatch(setSelectedKey(e.target.value));
+        console.log("Setting ");
       }
     } catch (error) {
       console.log(error.message);
@@ -76,7 +77,7 @@ export default function Navbar() {
           </div>
         ) : (
           <select
-            value={selectedKey || ""}
+            value={selectedKey}
             onChange={handleChange}
             className="border flex items-center justify-center border-gray-200 text-[#475569] px-4 py-2 text-sm rounded-md 
          focus:outline-none focus:ring-0 focus:border-cyan-400 bg-white"
