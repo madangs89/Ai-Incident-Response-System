@@ -4,6 +4,7 @@ import axios from "axios";
 
 import jwt from "jsonwebtoken";
 import { oAuth2Client } from "../config/google.js";
+import APIKey from "../models/apikeys.model.js";
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -197,17 +198,43 @@ export const oAuthLogin = async (req, res) => {
 
 export const isAuthenticated = async (req, res) => {
   try {
-    const user = req.user;
-    if (!user._id) {
+    const us = req.user;
+    if (!us._id) {
       return res.status(401).json({
         message: "Unauthorized",
         success: false,
       });
     }
+    const user = await User.findById(us._id)
+      .populate("currentApiKey")
+      .select("-password");
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+    console.log(user.currentApiKey);
+    
+    if (user.currentApiKey == null || user.currentApiKey == undefined || user.currentApiKey == "") {
+      const newKey = await APIKey.findOne({ userId: user._id }).sort({
+        createdAt: -1,
+      });
+
+      if (newKey?.key) {
+        user.currentApiKey = newKey?.projectName + ":" + newKey.key;
+        await user.save();
+        us.key = newKey?.projectName + ":" + newKey.key;
+      }
+    } else {
+      us.key = user.currentApiKey;
+    }
+    console.log(us.key);
+
     return res.status(200).json({
       message: "User is authenticated",
       success: true,
-      user,
+      user: us,
     });
   } catch (error) {
     return res.status(500).json({

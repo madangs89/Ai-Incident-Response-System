@@ -5,6 +5,7 @@ import {
   deleteUser,
   getAllUsers,
   getUserLogEdUserDetails,
+  setCurrentApiKey,
   updateUserDetails,
 } from "../controllers/user.controler.js";
 
@@ -15,5 +16,6 @@ userRouter.put("/update", authMiddleware, updateUserDetails);
 userRouter.delete("/delete/:id", deleteUser);
 userRouter.get("/get-all", getAllUsers);
 userRouter.put("/change-pass", authMiddleware, changePassword);
+userRouter.put("/set-api-key/:key/:value", authMiddleware, setCurrentApiKey);
 // Added
 export default userRouter;

@@ -22,8 +22,8 @@ const userSchema = new mongoose.Schema(
       type: String,
     },
     currentApiKey: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "APIKey",
+      type: String,
+      default: null,
     },
   },
   {

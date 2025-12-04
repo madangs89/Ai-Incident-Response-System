@@ -14,9 +14,28 @@ export default function Navbar() {
 
   const dispatch = useDispatch();
 
-  const handleChange = (e) => {
+  const handleChange = async (e) => {
     console.log(e.target.value);
-    dispatch(setSelectedKey(e.target.value));
+
+    let key = e.target.value.split(":")[1];
+
+    try {
+      const { data } = await axios.put(
+        `${import.meta.env.VITE_BACKEND_URL}/api/user/set-api-key/${key}/${
+          e.target.value
+        }`,
+        {},
+        {
+          withCredentials: true,
+        }
+      );
+      console.log(data);
+      if (data.success) {
+        dispatch(setSelectedKey(e.target.value));
+      }
+    } catch (error) {
+      console.log(error.message);
+    }
   };
 
   useEffect(() => {
@@ -66,7 +85,7 @@ export default function Navbar() {
           >
             {keys && keys.length > 0 ? (
               keys.map((key, index) => (
-                <option key={index} value={key?.projectName+":" + key?.key}>
+                <option key={index} value={key?.projectName + ":" + key?.key}>
                   {key.projectName}
                 </option>
               ))

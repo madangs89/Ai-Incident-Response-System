@@ -1,3 +1,4 @@
+import APIKey from "../models/apikeys.model.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcrypt";
 
@@ -10,12 +11,31 @@ export const getUserLogEdUserDetails = async (req, res) => {
         success: false,
       });
     }
-    const user = await User.findById(id).populate("currentApiKey").select("-password");
+    const user = await User.findById(id)
+      .populate("currentApiKey")
+      .select("-password");
     if (!user) {
       return res.status(404).json({
         message: "User not found",
         success: false,
       });
+    }
+
+    console.log(user.currentApiKey);
+
+    if (
+      user.currentApiKey == null ||
+      user.currentApiKey == undefined ||
+      user.currentApiKey == ""
+    ) {
+      const newKey = await APIKey.findOne({ userId: user._id }).sort({
+        createdAt: -1,
+      });
+
+      if (newKey?.key) {
+        user.currentApiKey = newKey?.projectName + ":" + newKey.key;
+        await user.save();
+      }
     }
     return res.status(200).json({
       message: "User fetched successfully",
@@ -142,6 +162,63 @@ export const changePassword = async (req, res) => {
     await user.save();
     return res.status(200).json({
       message: "Password changed successfully",
+      success: true,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      message: "Something went wrong",
+      success: false,
+    });
+  }
+};
+
+export const setCurrentApiKey = async (req, res) => {
+  try {
+    const id = req.user._id;
+    if (!id) {
+      return res.status(400).json({
+        message: "User id is required",
+        success: false,
+      });
+    }
+
+    const key = req.params.key;
+    const value = req.params.value;
+
+    if (!key) {
+      return res.status(400).json({
+        message: "API key is required",
+        success: false,
+      });
+    }
+
+    const isValidKey = await APIKey.findOne({ key });
+    if (!isValidKey) {
+      return res.status(400).json({
+        message: "Invalid API key",
+        success: false,
+      });
+    }
+    if (isValidKey?.userId.toString() !== id.toString()) {
+      return res.status(400).json({
+        message: "You are not authorized to use this API key",
+        success: false,
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        success: false,
+      });
+    }
+    user.currentApiKey = value;
+    await user.save();
+
+    return res.status(200).json({
+      message: "API key set successfully",
       success: true,
     });
   } catch (error) {

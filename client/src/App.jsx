@@ -13,6 +13,7 @@ import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { setIsAuthenticated, setToken, setUser } from "./redux/authSlice";
 import Callback from "./pages/Callback";
+import { setSelectedKey } from "./redux/userSlice";
 
 const App = () => {
   const auth = useSelector((state) => state.auth);
@@ -34,6 +35,7 @@ const App = () => {
           dispatch(setIsAuthenticated(true));
           dispatch(setUser(data?.user));
           dispatch(setToken(data?.token));
+          dispatch(setSelectedKey(data?.user?.key));
         }
         navigate("/login");
       } catch (error) {
