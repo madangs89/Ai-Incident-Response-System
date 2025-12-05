@@ -1,8 +1,9 @@
 import axios from "axios";
 import React, { useEffect, useState } from "react";
 import toast from "react-hot-toast";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import Loader from "../Components/Loader";
+import { setKeys, setSelectedKey } from "../redux/userSlice";
 
 const Incidents = () => {
   const [selectedIncident, setSelectedIncident] = useState(null);
@@ -10,6 +11,8 @@ const Incidents = () => {
   const [mainLoading, setMainLoading] = useState(false);
   const [revokeLoading, setRevokeLoading] = useState(false);
 
+  const keys = useSelector((state) => state.user.keys);
+  const dispatch = useDispatch();
   const [aiRes, setAiRes] = useState({});
 
   const selectedKey = useSelector((state) => state.user.selectedKey);
@@ -123,6 +126,45 @@ const Incidents = () => {
     }
   };
 
+  const handleChange = async (e) => {
+    console.log(e.target.value);
+
+    let key = e.target.value.split(":")[1];
+    let value = e.target.value;
+    try {
+      const { data } = await axios.put(
+        `${
+          import.meta.env.VITE_BACKEND_URL
+        }/api/user/set-api-key/${key}/${value}`,
+        {},
+        {
+          withCredentials: true,
+        }
+      );
+      console.log(data);
+      dispatch(setSelectedKey(value));
+      if (data.success) {
+        console.log("Setting ");
+      }
+    } catch (error) {
+      console.log(error.message);
+    }
+  };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await axios.get(
+          `${import.meta.env.VITE_BACKEND_URL}/api/key/get`,
+          { withCredentials: true }
+        );
+        if (data.success) dispatch(setKeys(data?.data || []));
+      } catch (error) {
+        toast.error(error?.response?.data?.message || "Something went wrong");
+      }
+    })();
+  }, []);
+
   return (
     <div className="w-full h-full bg-[#F9FAFB] overflow-hidden flex flex-col">
       {/* Header */}
@@ -136,22 +178,41 @@ const Incidents = () => {
       {/* Filters */}
       <div className="flex gap-3 mt-4 bg-white border border-gray-200 rounded-lg px-6 py-3">
         <button className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white border border-gray-200 pl-3 pr-2 text-gray-700 hover:bg-gray-100">
-          <p className="text-sm font-medium">Severity: All</p>
-          <span className="material-symbols-outlined text-base">
-            expand_more
-          </span>
+          <span>Severity</span>
+          <select className="text-sm font-medium">
+            <option selected>All</option>
+            <option>Critical</option>
+            <option>High</option>
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
         </button>
         <button className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white border border-gray-200 pl-3 pr-2 text-gray-700 hover:bg-gray-100">
-          <p className="text-sm font-medium">Service: All</p>
-          <span className="material-symbols-outlined text-base">
-            expand_more
-          </span>
+          <span>Service</span>
+          <select onChange={handleChange} className="text-sm font-medium">
+            {keys.map((item, index) => {
+              return (
+                <option
+                  selected={item.projectName + ":" + item.key == selectedKey}
+                  key={index}
+                  value={item.projectName + ":" + item.key}
+                >
+                  {item.projectName}
+                </option>
+              );
+            })}
+            <option>Medium</option>
+            <option>Low</option>
+          </select>
         </button>
         <button className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white border border-gray-200 pl-3 pr-2 text-gray-700 hover:bg-gray-100">
-          <p className="text-sm font-medium">Time Range: Last 24h</p>
-          <span className="material-symbols-outlined text-base">
-            expand_more
-          </span>
+          <span>Time Range</span>
+          <select className="text-sm font-medium">
+            <option>Last 24 hours</option>
+            <option selected>Last 3 days</option>
+            <option selected>Last 7 days</option>
+            <option selected>Last 30 days</option>
+          </select>
         </button>
       </div>
 
