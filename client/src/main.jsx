@@ -34,5 +34,5 @@ createRoot(document.getElementById("root")).render(
         />
       </BrowserRouter>
     </Provider>
-  </GoogleOAuthProvider>
+  </GoogleOAuthProvider>,
 );

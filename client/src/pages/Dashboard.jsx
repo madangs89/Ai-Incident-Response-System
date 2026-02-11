@@ -193,13 +193,12 @@ const Dashboard = () => {
           <p className="text-base font-semibold text-[#0F172A] mb-4">
             Incident Distribution
           </p>
-
           {securityDistribution.length === 0 ? (
             <div className="h-60 flex items-center justify-center text-gray-400">
               No attack data available
             </div>
           ) : (
-            <div className="h-60 flex items-center justify-center">
+            <div className="h-60 mt-6 z-[1000] flex items-center justify-center">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
@@ -207,6 +206,7 @@ const Dashboard = () => {
                     dataKey="count"
                     nameKey="attackType"
                     outerRadius={100}
+                    label={(entry) => `${entry.attackType} (${entry.count})`}
                   >
                     {securityDistribution.map((entry, index) => (
                       <Cell

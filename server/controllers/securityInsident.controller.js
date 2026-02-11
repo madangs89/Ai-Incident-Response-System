@@ -240,3 +240,51 @@ export const getWeeklyIncidentTrend = async (req, res) => {
     });
   }
 };
+
+export const resolveIncidentGroup = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        message: "Incident ID required",
+      });
+    }
+
+    // 1️⃣ Find the selected incident
+    const incident = await SecurityIncident.findById(id);
+
+    if (!incident) {
+      return res.status(404).json({
+        success: false,
+        message: "Incident not found",
+      });
+    }
+
+    // 2️⃣ Update all similar open incidents
+    const result = await SecurityIncident.updateMany(
+      {
+        apiKey: incident.apiKey,
+        endpoint: incident.endpoint,
+        attackType: incident.attackType,
+        status: "open",
+      },
+      {
+        $set: { status: "resolved" },
+      },
+    );
+
+    return res.json({
+      success: true,
+      message: "Similar incidents resolved successfully",
+      updatedCount: result.modifiedCount,
+    });
+  } catch (error) {
+    console.error("Error resolving incidents:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
