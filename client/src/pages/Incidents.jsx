@@ -20,6 +20,8 @@ const Incidents = () => {
   const [incidents, setIncidents] = useState([]);
 
   useEffect(() => {
+    console.log({selectedKey});
+
     if (selectedKey) {
       (async () => {
         try {

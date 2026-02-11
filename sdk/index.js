@@ -5,13 +5,13 @@ export default class AIAnalyzerLogger {
     if (!key) {
       this.consoler("API Key is not set");
       throw new Error(
-        "Setup You api key from our Dashboard=> https://ai-analyzer.com/"
+        "Setup You api key from our Dashboard=> https://ai-analyzer.com/",
       );
     }
     if (!serviceName) {
       this.consoler("Service Name is not set");
       throw new Error(
-        "Setup You service name from our Dashboard=> https://ai-analyzer.com/"
+        "Setup You service name from our Dashboard=> https://ai-analyzer.com/",
       );
     }
     this.apiKey = key;
@@ -43,7 +43,7 @@ export default class AIAnalyzerLogger {
     if (this.apiKey == undefined || this.apiKey.length <= 0) {
       this.consoler("API Key is not set");
       throw new Error(
-        "Setup You api key from our Dashboard=> https://ai-analyzer.com/"
+        "Setup You api key from our Dashboard=> https://ai-analyzer.com/",
       );
     }
     if (this.isVerified == false) {
@@ -352,13 +352,13 @@ export default class AIAnalyzerLogger {
             } catch (err) {
               console.log(
                 `⚠️ [AIAnalyzer] Auto-captured route error on ${method.toUpperCase()} ${path}:`,
-                err.message
+                err.message,
               );
 
               await this.captureError(
                 err,
                 { module: "express", operation: "autoWrap", method, path },
-                { req, isReq: true }
+                { req, isReq: true },
               );
 
               // Forward to Express error handlers if needed
@@ -372,7 +372,7 @@ export default class AIAnalyzerLogger {
     });
 
     console.log(
-      "🧠 [AIAnalyzer] Express methods patched for auto error capture"
+      "🧠 [AIAnalyzer] Express methods patched for auto error capture",
     );
   }
 
@@ -389,7 +389,7 @@ export default class AIAnalyzerLogger {
           module: "global",
           operation: "unhandledRejection",
         },
-        {}
+        {},
       )
         .then(() => {
           console.log("[AIAnalyzer] Error captured successfully.");
@@ -397,7 +397,7 @@ export default class AIAnalyzerLogger {
         .catch((err) => {
           console.error(
             "[AIAnalyzer] Failed to send unhandledRejection:",
-            err.message
+            err.message,
           );
         });
     });
@@ -409,7 +409,7 @@ export default class AIAnalyzerLogger {
           module: "global",
           operation: "uncaughtException",
         },
-        {}
+        {},
       )
         .then(() => {
           console.log("[AIAnalyzer] Error captured successfully.");
@@ -417,7 +417,7 @@ export default class AIAnalyzerLogger {
         .catch((err) => {
           console.error(
             "[AIAnalyzer] Failed to send unhandledRejection:",
-            err.message
+            err.message,
           );
         });
     });
@@ -448,7 +448,7 @@ export default class AIAnalyzerLogger {
       await this.captureError(
         err,
         { module: "express", operation: "express" },
-        { req, isReq: true }
+        { req, isReq: true },
       );
     } catch (error) {
       this.consoler(error);
@@ -473,7 +473,7 @@ export default class AIAnalyzerLogger {
     if (payload) {
       const { level, severity } = this.classifyErrorSeverity(
         error,
-        payload.metadata
+        payload.metadata,
       );
       payload.level = level;
       payload.metadata.severity = severity;
@@ -541,16 +541,16 @@ export default class AIAnalyzerLogger {
         await this.captureError(
           new Error(`HTTP ${res.statusCode} ${req.method} ${req.originalUrl}`),
           { module: "express", operation: "response", status: res.statusCode },
-          { req, isReq: true }
+          { req, isReq: true },
         );
       } else if (res.statusCode >= 400) {
         // 🟡 Client-side handled error (optional)
         await this.captureError(
           new Error(
-            `ClientError ${res.statusCode} ${req.method} ${req.originalUrl}`
+            `ClientError ${res.statusCode} ${req.method} ${req.originalUrl}`,
           ),
           { module: "express", operation: "response", status: res.statusCode },
-          { req, isReq: true }
+          { req, isReq: true },
         );
       }
     });
@@ -673,7 +673,6 @@ export default class AIAnalyzerLogger {
       }, this.flushInterval);
     }
   };
-
   flushQueue = async () => {
     console.log("Handle comes to flushQueue");
 
@@ -694,7 +693,7 @@ export default class AIAnalyzerLogger {
         {
           headers: { "x-api-key": this.apiKey },
           timeout: 5000,
-        }
+        },
       );
       this.consoler(data);
       this.consoler(`[AIAnalyzer] Flushed ${batch.length} logs successfully.`);
@@ -702,7 +701,7 @@ export default class AIAnalyzerLogger {
       this.consoler(error);
       console.error(
         "[AIAnalyzer] Failed to flush batch:",
-        error?.message || error?.response?.data?.message
+        error?.message || error?.response?.data?.message,
       );
       // Retry once after short delay
       // setTimeout(() => {
@@ -732,11 +731,11 @@ export default class AIAnalyzerLogger {
         {
           headers: { "x-api-key": this.apiKey },
           timeout: 5000,
-        }
+        },
       );
       this.consoler(data);
       this.consoler(
-        `[AIAnalyzer] Flushed ${batch.length} metrics successfully.`
+        `[AIAnalyzer] Flushed ${batch.length} metrics successfully.`,
       );
     } catch (error) {
       console.log(error);
@@ -744,7 +743,7 @@ export default class AIAnalyzerLogger {
       this.consoler(error.error?.response?.data?.message || error.message);
       console.error(
         "[AIAnalyzer] Failed to flush batch metric:",
-        error?.message || error?.response?.data?.message
+        error?.message || error?.response?.data?.message,
       );
     } finally {
       this.isMetricFlushing = false;

@@ -25,8 +25,18 @@ const incidentSchema = new mongoose.Schema(
     },
     status: { type: String, default: "active", enum: ["active", "solved"] },
     stack: { type: String },
+    incidentType: {
+      type: String,
+      enum: ["SECURITY", "ERROR", "ANOMALY"],
+      required: true,
+    },
+
+    attackType: {
+      type: String,
+      default: null, // SQL_INJECTION, XSS, etc.
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 incidentSchema.index({ signature: 1 });
 const Incident = mongoose.model("Incident", incidentSchema);

@@ -92,14 +92,14 @@ const AuthPage = () => {
       setGoogleLoading(true);
       console.log(googleData);
       const { code } = googleData;
-      const { data } = await axios.post(
+      const data = await axios.post(
         `${import.meta.env.VITE_BACKEND_URL}/api/auth/google`,
         { code },
         {
           withCredentials: true,
         }
       );
-      console.log(data);
+      console.log({ data });
       if (data.success) {
         toast.success("Login successful");
         dispatch(setIsAuthenticated(true));
@@ -108,7 +108,7 @@ const AuthPage = () => {
         navigate("/dashboard");
       }
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(error.response?.data?.message || "Something went wrong");
       dispatch(setIsAuthenticated(false));
       dispatch(setUser(null));
       dispatch(setToken(null));

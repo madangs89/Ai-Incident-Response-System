@@ -14,13 +14,39 @@ import metricRouter from "./routes/metrix.routes.js";
 import incidentRouter from "./routes/incident.routes.js";
 import aiRoutes from "./routes/aiAnalysis.routes.js";
 
+import securityIncidentRouter from "./routes/securityInsident.routes.js";
+
+import axios from "axios";
+
+async function spamLogin() {
+  for (let i = 1; i <= 15; i++) {
+    try {
+      await axios.post("http://localhost:4000/login", {
+        username: "admin",
+        password: "wrongpassword",
+      });
+      console.log(`Request ${i} sent`);
+    } catch {
+      console.log(`Request ${i} failed`);
+    }
+  }
+}
+
+async function flood() {
+  const promises = [];
+  for (let i = 0; i < 200; i++) {
+    promises.push(axios.get("http://localhost:4000/ddos").catch(() => {}));
+  }
+  await Promise.all(promises);
+}
+
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL,
+    origin: "http://localhost:5173",
     credentials: true,
     allowedHeaders: ["Content-Type", "Authorization"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
-  })
+  }),
 );
 app.use(cookieParser());
 app.use(express.json());
@@ -39,9 +65,11 @@ app.use("/api/metric", metricRouter);
 app.use("/api/user", userRouter);
 app.use("/api/incident", incidentRouter);
 app.use("/api/ai", aiRoutes);
+app.use("/api/security-incident", securityIncidentRouter);
 
 httpServer.listen(process.env.PORT, async () => {
   await connectDB();
+
   const fakeLog = {
     serviceName: "user-service",
     message: "MongoDB connection refused: ECONNREFUSED 127.0.0.1:27017",
@@ -71,4 +99,6 @@ httpServer.listen(process.env.PORT, async () => {
     at MongoClient.connect (/usr/src/app/node_modules/mongodb/lib/mongo_client.js:160:30)`,
   };
   console.log(`Server is running on port http://localhost:${process.env.PORT}`);
+
+  // flood();
 });

@@ -1,131 +1,200 @@
 import APIKey from "../models/apikeys.model.js";
 import Metric from "../models/metrix.model.js";
+import SecurityIncident from "../models/SecurityIncident.model.js";
 
+/* ============================
+   SEVERITY BASE
+============================ */
+const ATTACK_BASE_SEVERITY = {
+  SQL_INJECTION: 4,
+  NOSQL_INJECTION: 4,
+  COMMAND_INJECTION: 5,
+  PATH_TRAVERSAL: 4,
+  XSS: 3,
+};
+
+/* ============================
+   RULE-BASED DETECTION
+============================ */
+function detectRuleBasedAttack(item) {
+  const payload = (item.bodySample || "").toLowerCase();
+  const endpoint = (item.endpoint || "").toLowerCase();
+
+  if (/('|%27)\s*or\s*1=1|union\s+select/.test(payload)) return "SQL_INJECTION";
+
+  if (/<script>|onerror=|onload=/.test(payload)) return "XSS";
+
+  if (/(;|\|\||&&)\s*(ls|rm|cat|bash|sh)/.test(payload))
+    return "COMMAND_INJECTION";
+
+  if (/(\.\.\/|%2e%2e%2f)/.test(endpoint + payload)) return "PATH_TRAVERSAL";
+
+  if (/\$(ne|gt|lt|where)/.test(payload)) return "NOSQL_INJECTION";
+
+  return null;
+}
+
+/* ============================
+   MAIN CONTROLLER
+============================ */
 export const MetricAccept = async (req, res) => {
   try {
-    console.log("got metric logs");
+    console.log("Metric received");
 
     const apiKey =
       req.header("x-api-key") ||
       req.headers["x-api-key"] ||
       req.get("x-api-key");
-    if (!apiKey) {
-      return res
-        .status(400)
-        .json({ message: "API key is required", success: false });
-    }
+
+    if (!apiKey)
+      return res.status(400).json({
+        success: false,
+        message: "API key required",
+      });
 
     const isValid = await APIKey.findOne({ key: apiKey });
-    if (!isValid) {
+
+    if (!isValid)
       return res.status(404).json({
-        message: "API key not found",
         success: false,
-        valid: false,
+        message: "Invalid API key",
       });
-    }
 
     const data = req.body;
-    console.log(data);
-    
 
-    if (data.length == 0) {
-      return res.status(400).json({ message: "Log is empty", success: false });
+    if (!Array.isArray(data) || data.length === 0)
+      return res.status(400).json({
+        success: false,
+        message: "Empty metrics",
+      });
+
+    /* ============================
+       STEP 1: RULE-BASED SECURITY
+    ============================ */
+    for (const item of data) {
+      const ruleAttack = detectRuleBasedAttack(item);
+
+      const isAttack = !!ruleAttack;
+      const attackType = ruleAttack || null;
+
+      let severity = ATTACK_BASE_SEVERITY[attackType] || 1;
+
+      if (item.status >= 500) severity++;
+      severity = Math.min(severity, 5);
+
+      item.security = {
+        rule: {
+          detected: isAttack,
+          attackType,
+        },
+        final: {
+          isAttack,
+          attackType,
+          severity,
+        },
+      };
+
+      /* ============================
+         SAVE INCIDENT (NO GROUPING)
+      ============================ */
+      if (isAttack && attackType) {
+        await SecurityIncident.create({
+          serviceName: isValid?.serviceName || "Unknown Service",
+          endpoint: item.endpoint,
+          method: item.method,
+
+          apiKey, // for attribution
+          attackType,
+          detectionSource: "RULE",
+
+          severity,
+          confidence: null,
+
+          // unique signature (no grouping)
+          signature: `${item.endpoint}_${attackType}_${Date.now()}_${Math.random()}`,
+
+          occurrences: 1,
+
+          indicators: {
+            payloadSample: item.bodySample?.slice(0, 300),
+            queryParamsCount: item.query_params_count,
+            isJson: item.is_json,
+            mlScore: null,
+          },
+
+          requestMeta: {
+            normalizedPath: item.normalized_path,
+            userAgent: item.headers?.["user-agent"],
+            clientIp: item.client_ip,
+          },
+
+          metrics: {
+            durationMs: item.duration,
+            statusCode: item.status,
+          },
+
+          status: "open",
+        });
+      }
+
+      console.log("Processed security item:", item);
     }
 
-    const outputObj = {};
+    /* ============================
+       STEP 2: METRIC AGGREGATION
+    ============================ */
+    const bulkOps = {};
 
-    data.forEach((items) => {
-      const { endpoint, method, status, duration } = items;
-      if (!outputObj[endpoint]) {
-        outputObj[endpoint] = {
-          endpoint,
-          method,
-          status,
-          count: 1,
-          errorCount: status >= 400 && status <= 599 ? 1 : 0,
-          totalDuration: duration,
-          averageDuration: duration,
+    data.forEach((item) => {
+      const key = `${item.endpoint}::${item.method}`;
+
+      if (!bulkOps[key]) {
+        bulkOps[key] = {
+          apiKey,
+          endpoint: item.endpoint,
+          method: item.method,
+          count: 0,
+          errorCount: 0,
+          totalDuration: 0,
         };
-      } else {
-        outputObj[endpoint].count++;
-        outputObj[endpoint].totalDuration += duration;
-        outputObj[endpoint].averageDuration =
-          outputObj[endpoint].totalDuration / outputObj[endpoint].count;
-        if (status >= 400 && status <= 599) {
-          outputObj[endpoint].errorCount++;
-        }
       }
+
+      bulkOps[key].count++;
+      bulkOps[key].totalDuration += item.duration;
+
+      if (item.status >= 400) bulkOps[key].errorCount++;
     });
 
-    console.log(outputObj);
-
-    const bulkOps = Object.values(outputObj).map((item) => {
-      const filters = {
-        apiKey,
-        endpoint: item.endpoint,
-        method: item.method,
-      };
-
-      const countInc = item.count;
-      const errorCountInc = item.errorCount;
-      const totalDurationInc = item.totalDuration;
-
-      const updatePipeline = [
-        {
-          $set: {
-            totalDuration: {
-              $add: [{ $ifNull: ["$totalDuration", 0] }, totalDurationInc],
-            },
-            count: { $add: [{ $ifNull: ["$count", 0] }, countInc] },
-            errorCount: {
-              $add: [{ $ifNull: ["$errorCount", 0] }, errorCountInc],
-            },
-          },
-        },
-        {
-          $set: {
-            avgDuration: {
-              $cond: [
-                { $eq: ["$count", 0] },
-                0,
-                { $divide: ["$totalDuration", "$count"] },
-              ],
-            },
-          },
-        },
-        // Replace $setOnInsert with $set + $ifNull
-        {
-          $set: {
-            apiKey: { $ifNull: ["$apiKey", apiKey] },
-            endpoint: { $ifNull: ["$endpoint", item.endpoint] },
-            method: { $ifNull: ["$method", item.method] },
-          },
-        },
-      ];
-
-      return {
+    await Metric.bulkWrite(
+      Object.values(bulkOps).map((m) => ({
         updateOne: {
-          filter: filters,
-          update: updatePipeline,
+          filter: {
+            apiKey,
+            endpoint: m.endpoint,
+            method: m.method,
+          },
+          update: {
+            $inc: {
+              count: m.count,
+              errorCount: m.errorCount,
+              totalDuration: m.totalDuration,
+            },
+          },
           upsert: true,
         },
-      };
-    });
+      })),
+      { ordered: false },
+    );
 
-    const bulkResult = await Metric.bulkWrite(bulkOps, { ordered: false });
-
-    console.log("bulkWrite result:", bulkResult);
-    return res.status(200).json({
-      message: "Metrics processed",
+    return res.json({
       success: true,
-      result: bulkResult,
+      processed: data.length,
     });
-  } catch (error) {
-    console.log(error);
+  } catch (err) {
+    console.error(err);
     return res.status(500).json({
-      message: "Something went wrong",
       success: false,
-      valid: false,
+      message: "Server error",
     });
   }
 };
