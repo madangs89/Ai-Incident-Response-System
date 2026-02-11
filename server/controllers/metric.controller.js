@@ -198,3 +198,78 @@ export const MetricAccept = async (req, res) => {
     });
   }
 };
+
+export const totalApiCallToday = async (req, res) => {
+  try {
+    const { apiKey } = req.params;
+
+    if (!apiKey) {
+      return res.status(400).json({
+        success: false,
+        message: "API key is required",
+      });
+    }
+
+    const startOfDay = new Date();
+    startOfDay.setHours(0, 0, 0, 0);
+
+    const metrics = await Metric.find({
+      apiKey,
+      updatedAt: { $gte: startOfDay },
+    });
+
+    let totalCalls = 0;
+
+    metrics.forEach((m) => {
+      totalCalls += m.count;
+    });
+
+    return res.json({
+      success: true,
+      totalApiCallsToday: totalCalls,
+    });
+  } catch (error) {
+    console.error("Error fetching total API calls today:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+export const avrgResTime = async (req, res) => {
+  try {
+    const { apiKey } = req.params;
+
+    if (!apiKey) {
+      return res.status(400).json({
+        success: false,
+        message: "API key is required",
+      });
+    }
+
+    const metrics = await Metric.find({ apiKey });
+
+    let totalCalls = 0;
+    let totalDuration = 0;
+
+    metrics.forEach((m) => {
+      totalCalls += m.count;
+      totalDuration += m.totalDuration;
+    });
+
+    const avgResponseTime = totalCalls > 0 ? totalDuration / totalCalls : 0;
+
+    return res.json({
+      success: true,
+      averageResponseTime: Number(avgResponseTime.toFixed(2)), // in ms
+      totalCalls,
+    });
+  } catch (error) {
+    console.error("Error fetching average response time:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};

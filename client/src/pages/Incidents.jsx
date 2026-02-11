@@ -5,406 +5,334 @@ import { useDispatch, useSelector } from "react-redux";
 import Loader from "../Components/Loader";
 import { setKeys, setSelectedKey } from "../redux/userSlice";
 
+const severityOptions = [
+  { label: "All", value: "" },
+  { label: "Critical", value: 5 },
+  { label: "High", value: 4 },
+  { label: "Medium", value: 3 },
+  { label: "Low", value: 2 },
+];
+
+const statusOptions = [
+  { label: "All", value: "" },
+  { label: "Open", value: "open" },
+  { label: "Resolved", value: "resolved" },
+];
+
 const Incidents = () => {
-  const [selectedIncident, setSelectedIncident] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [mainLoading, setMainLoading] = useState(false);
-  const [revokeLoading, setRevokeLoading] = useState(false);
-
-  const keys = useSelector((state) => state.user.keys);
   const dispatch = useDispatch();
-  const [aiRes, setAiRes] = useState({});
-
+  const keys = useSelector((state) => state.user.keys);
   const selectedKey = useSelector((state) => state.user.selectedKey);
 
   const [incidents, setIncidents] = useState([]);
+  const [selectedIncident, setSelectedIncident] = useState(null);
 
-  useEffect(() => {
-    console.log({selectedKey});
+  const [loading, setLoading] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
 
-    if (selectedKey) {
-      (async () => {
-        try {
-          setMainLoading(true);
-          let key = selectedKey.split(":")[1];
-          const { data } = await axios.get(
-            `${
-              import.meta.env.VITE_BACKEND_URL
-            }/api/incident/get-incidents/${key}`,
-            {
-              withCredentials: true,
-            }
-          );
-          console.log(data);
-          if (data.success) {
-            setIncidents(data.data);
-          }
-        } catch (error) {
-          toast.error("Unable to fetch incidents");
-        } finally {
-          setMainLoading(false);
-        }
-      })();
-    }
-  }, [selectedKey]);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
-  useEffect(() => {
-    console.log(selectedIncident);
+  const [filters, setFilters] = useState({
+    severity: "",
+    status: "",
+  });
 
-    if (selectedIncident?._id) {
-      (async () => {
-        try {
-          const aiAnalysisId = selectedIncident?._id;
-          if (aiAnalysisId) {
-            setLoading(true);
-            const aiData = await axios.get(
-              `${
-                import.meta.env.VITE_BACKEND_URL
-              }/api/ai/get-ai/${aiAnalysisId}`,
-              {
-                withCredentials: true,
-              }
-            );
-            setAiRes(aiData.data.data);
-          }
-        } catch (error) {
-          console.log(error);
-          toast.error("Unable to fetch ai analysis");
-          setAiRes({
-            aiModel: "",
-            rootCause: "Unable to fetch root cause",
-            fixSuggestion: "Unable to fetch fix suggestion",
-          });
-        } finally {
-          setLoading(false);
-        }
-      })();
-    }
-  }, [selectedIncident]);
+  const limit = 10;
 
-  const getBadge = (label, color) => (
-    <div
-      className={`inline-flex items-center gap-1.5 rounded-full bg-${color}-500/10 px-2 py-1 text-xs font-medium text-${color}-600`}
-    >
-      <div className={`size-1.5 rounded-full bg-${color}-500`}></div>
-      {label.toUpperCase()}
-    </div>
-  );
-
-  const markIncidentAsResolved = async (incidentId) => {
+  /* ======================================
+     FETCH INCIDENTS WITH FILTERS
+  ======================================= */
+  const fetchIncidents = async () => {
     try {
-      setRevokeLoading(true);
-      const { data } = await axios.put(
-        `${
-          import.meta.env.VITE_BACKEND_URL
-        }/api/incident/mark-incident-solved/${incidentId}`,
-        {},
+      if (!selectedKey) return;
+
+      setLoading(true);
+
+      const apiKey = selectedKey.split(":")[1];
+
+      const { data } = await axios.get(
+        `${import.meta.env.VITE_BACKEND_URL}/api/security-incident`,
         {
+          params: {
+            apiKey,
+            page,
+            limit,
+            severity: filters.severity,
+            status: filters.status,
+          },
           withCredentials: true,
-        }
+        },
       );
 
-      console.log(data);
-
       if (data.success) {
-        setSelectedIncident((prev) => {
-          return { ...prev, status: "solved" };
-        });
-
-        setIncidents((prev) => {
-          return prev.map((inc) => {
-            if (inc._id === incidentId) {
-              return { ...inc, status: "solved" };
-            } else {
-              return inc;
-            }
-          });
-        });
+        setIncidents(data.incidents);
+        setTotalPages(data.totalPages);
       }
     } catch (error) {
-      toast.error("Unable to mark incident as resolved");
+      toast.error("Failed to load incidents");
     } finally {
-      setRevokeLoading(false);
-    }
-  };
-
-  const handleChange = async (e) => {
-    console.log(e.target.value);
-
-    let key = e.target.value.split(":")[1];
-    let value = e.target.value;
-    try {
-      const { data } = await axios.put(
-        `${
-          import.meta.env.VITE_BACKEND_URL
-        }/api/user/set-api-key/${key}/${value}`,
-        {},
-        {
-          withCredentials: true,
-        }
-      );
-      console.log(data);
-      dispatch(setSelectedKey(value));
-      if (data.success) {
-        console.log("Setting ");
-      }
-    } catch (error) {
-      console.log(error.message);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const { data } = await axios.get(
-          `${import.meta.env.VITE_BACKEND_URL}/api/key/get`,
-          { withCredentials: true }
-        );
-        if (data.success) dispatch(setKeys(data?.data || []));
-      } catch (error) {
-        toast.error(error?.response?.data?.message || "Something went wrong");
-      }
-    })();
-  }, []);
+    fetchIncidents();
+  }, [selectedKey, page, filters]);
+
+  /* ======================================
+     BADGE SYSTEM (NO DYNAMIC TAILWIND BUG)
+  ======================================= */
+  const severityBadge = (severity) => {
+    const map = {
+      5: "bg-red-100 text-red-600",
+      4: "bg-orange-100 text-orange-600",
+      3: "bg-yellow-100 text-yellow-600",
+      2: "bg-gray-100 text-gray-600",
+    };
+
+    const label =
+      severity === 5
+        ? "Critical"
+        : severity === 4
+          ? "High"
+          : severity === 3
+            ? "Medium"
+            : "Low";
+
+    return (
+      <span
+        className={`px-2 py-1 rounded-full text-xs font-semibold ${map[severity]}`}
+      >
+        {label}
+      </span>
+    );
+  };
+
+  const statusBadge = (status) => {
+    if (status === "resolved")
+      return (
+        <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-600">
+          Resolved
+        </span>
+      );
+    return (
+      <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-600">
+        Open
+      </span>
+    );
+  };
+
+
 
   return (
-    <div className="w-full h-full bg-[#F9FAFB] overflow-hidden flex flex-col">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4 bg-white border border-gray-200 rounded-lg shadow-sm px-6 py-4">
+    <div className="w-full h-full bg-[#F9FAFB] flex flex-col gap-6">
+      {/* HEADER */}
+      <div className="bg-white border rounded-lg shadow-sm px-6 py-4 flex justify-between items-center">
         <h1 className="text-2xl font-bold text-[#0F172A]">Incidents</h1>
-        <button className="flex items-center justify-center rounded-lg bg-gradient-to-b from-gray-900 to-black text-white text-sm font-semibold px-4 py-2 hover:opacity-90">
-          Create Alert Rule
-        </button>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 mt-4 bg-white border border-gray-200 rounded-lg px-6 py-3">
-        <button className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white border border-gray-200 pl-3 pr-2 text-gray-700 hover:bg-gray-100">
-          <span>Severity</span>
-          <select className="text-sm font-medium">
-            <option selected>All</option>
-            <option>Critical</option>
-            <option>High</option>
-            <option>Medium</option>
-            <option>Low</option>
-          </select>
-        </button>
-        <button className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white border border-gray-200 pl-3 pr-2 text-gray-700 hover:bg-gray-100">
-          <span>Service</span>
-          <select onChange={handleChange} className="text-sm font-medium">
-            {keys.map((item, index) => {
-              return (
-                <option
-                  selected={item.projectName + ":" + item.key == selectedKey}
-                  key={index}
-                  value={item.projectName + ":" + item.key}
-                >
-                  {item.projectName}
-                </option>
-              );
-            })}
-            <option>Medium</option>
-            <option>Low</option>
-          </select>
-        </button>
-        <button className="flex h-8 items-center justify-center gap-1.5 rounded-lg bg-white border border-gray-200 pl-3 pr-2 text-gray-700 hover:bg-gray-100">
-          <span>Time Range</span>
-          <select className="text-sm font-medium">
-            <option>Last 24 hours</option>
-            <option selected>Last 3 days</option>
-            <option selected>Last 7 days</option>
-            <option selected>Last 30 days</option>
-          </select>
-        </button>
+      {/* FILTERS */}
+      <div className="bg-white border rounded-lg px-6 py-3 flex gap-4">
+        <select
+          value={filters.severity}
+          onChange={(e) =>
+            setFilters((prev) => ({ ...prev, severity: e.target.value }))
+          }
+          className="border rounded px-3 py-2 text-sm"
+        >
+          {severityOptions.map((opt) => (
+            <option key={opt.label} value={opt.value}>
+              Severity: {opt.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filters.status}
+          onChange={(e) =>
+            setFilters((prev) => ({ ...prev, status: e.target.value }))
+          }
+          className="border rounded px-3 py-2 text-sm"
+        >
+          {statusOptions.map((opt) => (
+            <option key={opt.label} value={opt.value}>
+              Status: {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Table */}
-      <div className="flex-1 mt-4 overflow-hidden rounded-lg border border-gray-200 bg-white">
-        {mainLoading ? (
-          <div className="w-[100%] h-[90%]  flex items-center justify-center">
+      {/* TABLE */}
+      <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
+        {loading ? (
+          <div className="h-60 flex items-center justify-center">
             <Loader color="black" size={15} />
           </div>
         ) : (
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
               <tr>
-                <th className="px-4 py-3 w-1/5 text-gray-500 uppercase text-xs font-medium">
-                  Timestamp
-                </th>
-                <th className="px-4 py-3 w-1/5 text-gray-500 uppercase text-xs font-medium">
-                  Service
-                </th>
-                <th className="px-4 py-3 w-2/5 text-gray-500 uppercase text-xs font-medium">
-                  Error Message
-                </th>
-                <th className="px-4 py-3 w-[120px] text-gray-500 uppercase text-xs font-medium">
-                  Severity
-                </th>
-                <th className="px-4 py-3 w-[120px] text-gray-500 uppercase text-xs font-medium">
-                  Status
-                </th>
+                <th className="px-4 py-3">Timestamp</th>
+                <th className="px-4 py-3">Service</th>
+                <th className="px-4 py-3">Endpoint</th>
+                <th className="px-4 py-3">Attack Type</th>
+                <th className="px-4 py-3">Severity</th>
+                <th className="px-4 py-3">Status</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
-              {incidents.map((item, index) => (
-                <tr
-                  key={index}
-                  className="hover:bg-cyan-500/10 cursor-pointer transition-all"
-                  onClick={() => setSelectedIncident(item)}
-                >
-                  <td className="px-4 py-3 text-gray-500">{item.createdAt}</td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {item.serviceName}
-                  </td>
-                  <td className="px-4 py-3 text-gray-800">{item.message}</td>
-                  <td className="px-4 py-3">
-                    {getBadge(
-                      item.complexity == 5
-                        ? "Critical"
-                        : item.complexity === 4
-                        ? "High"
-                        : item.complexity === 3
-                        ? "Medium"
-                        : "Low",
-                      item.complexity == 5
-                        ? "red"
-                        : item.complexity === 4
-                        ? "orange"
-                        : item.complexity === 3
-                        ? "yellow"
-                        : "gray"
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {getBadge(
-                      item.status,
-                      item.status === "Active"
-                        ? "blue"
-                        : item.status === "solved"
-                        ? "green"
-                        : "gray"
-                    )}
+
+            <tbody className="divide-y">
+              {incidents && incidents.length > 0 ? (
+                incidents.map((item) => (
+                  <tr
+                    key={item._id}
+                    className="hover:bg-cyan-50 cursor-pointer transition"
+                    onClick={() => setSelectedIncident(item)}
+                  >
+                    <td className="px-4 py-3">
+                      {new Date(item.createdAt).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">{item.serviceName}</td>
+                    <td className="px-4 py-3">
+                      {item.method} {item.endpoint}
+                    </td>
+                    <td className="px-4 py-3">{item.attackType}</td>
+                    <td className="px-4 py-3">
+                      {severityBadge(item.severity)}
+                    </td>
+                    <td className="px-4 py-3">{statusBadge(item.status)}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="6">
+                    <div className="flex items-center justify-center h-[50vh] bg-[#F9FAFB]">
+                      <div className="flex flex-col items-center gap-6 animate-fade-in">
+                        <div className="relative">
+                          <div className="absolute w-40 h-40 bg-cyan-400/20 rounded-full animate-ping"></div>
+                          <div className="w-24 h-24 bg-gradient-to-br from-cyan-400 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                            <span className="text-white text-4xl">🛡️</span>
+                          </div>
+                        </div>
+                        <h2 className="text-xl font-bold text-[#0F172A]">
+                          No Incidents Found
+                        </h2>
+                        <p className="text-gray-500 text-sm">
+                          Try adjusting filters or wait for new activity.
+                        </p>
+                      </div>
+                    </div>
                   </td>
                 </tr>
-              ))}
+              )}
             </tbody>
           </table>
         )}
       </div>
 
-      {/* Fullscreen Modal */}
+      {/* PAGINATION */}
+      <div className="flex justify-center gap-3">
+        <button
+          disabled={page === 1}
+          onClick={() => setPage((p) => p - 1)}
+          className="px-4 py-2 border rounded disabled:opacity-50"
+        >
+          Prev
+        </button>
+
+        <span className="px-4 py-2 text-sm">
+          Page {page} of {totalPages}
+        </span>
+
+        <button
+          disabled={page === totalPages}
+          onClick={() => setPage((p) => p + 1)}
+          className="px-4 py-2 border rounded disabled:opacity-50"
+        >
+          Next
+        </button>
+      </div>
+
+      {/* MODAL */}
       {selectedIncident && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
-          {loading ? (
-            <Loader color="black" size={15} />
-          ) : (
-            <div className="bg-white w-full h-[90%] max-w-5xl rounded-lg flex flex-col overflow-hidden shadow-xl">
-              {/* Modal Header */}
-              <div className="flex items-center justify-between border-b border-gray-200 p-4">
+          <div className="bg-white w-full max-w-4xl rounded-xl shadow-xl overflow-hidden animate-scale-in">
+            {/* HEADER */}
+            <div className="border-b p-6 flex justify-between items-start">
+              <div>
+                <h2 className="text-lg font-bold">
+                  {selectedIncident.attackType}
+                </h2>
+                <p className="text-sm text-gray-500">
+                  {selectedIncident.method} {selectedIncident.endpoint}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedIncident(null)}
+                className="text-gray-500 hover:text-black"
+              >
+                ✖
+              </button>
+            </div>
+
+            {/* BODY */}
+            <div className="p-6 space-y-6 text-sm">
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <h2 className="text-lg font-bold text-black">
-                    {selectedIncident.message}
-                  </h2>
-                  <p className="text-sm text-gray-500">
-                    from service: {selectedIncident.serviceName}
+                  <p className="text-gray-500">Service</p>
+                  <p className="font-semibold">
+                    {selectedIncident.serviceName}
                   </p>
                 </div>
-                <button
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-black"
-                  onClick={() => setSelectedIncident(null)}
-                >
-                  <span className="material-symbols-outlined text-xl">X</span>
-                </button>
+                <div>
+                  <p className="text-gray-500">API Key</p>
+                  <p className="font-mono text-xs break-all">
+                    {selectedIncident.apiKey}
+                  </p>
+                </div>
               </div>
 
-              {/* Scrollable content */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-2">
-                    AI Root Cause Analysis
-                  </h3>
-                  <div className="bg-gray-100 rounded-lg p-4 text-sm text-gray-700 leading-relaxed">
-                    {aiRes?.rootCause}
-                  </div>
+                  <p className="text-gray-500">Severity</p>
+                  {severityBadge(selectedIncident.severity)}
                 </div>
-
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-2">
-                    AI Suggested Fix
-                  </h3>
-                  <div className="bg-gray-100 rounded-lg p-4 text-sm text-gray-700">
-                    {aiRes?.fixSuggestion &&
-                      aiRes?.fixSuggestion?.split(".").map((line, index) => {
-                        return (
-                          line.length > 0 && (
-                            <p key={index} className="mb-3">
-                              {index + 1}. {line}
-                            </p>
-                          )
-                        );
-                      })}
-                  </div>
+                  <p className="text-gray-500">Status</p>
+                  {statusBadge(selectedIncident.status)}
                 </div>
+              </div>
 
-                <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wide text-gray-500 mb-2">
-                    Details
-                  </h3>
-                  <div className="bg-gray-100 rounded-lg p-4 text-xs text-gray-700 font-mono">
-                    <div className="flex border-b border-gray-200 py-2">
-                      <span className="w-28 text-gray-500">Endpoint</span>
-                      <span>
-                        {selectedIncident?.metadata?.method}{" "}
-                        {selectedIncident?.endpoint}
-                      </span>
-                    </div>
-                    <div className="flex border-b border-gray-200 py-2">
-                      <span className="w-28 text-gray-500">File</span>
-                      <span>
-                        {selectedIncident?.metadata?.caller?.file}:
-                        {selectedIncident?.metadata?.caller?.line}
-                      </span>
-                    </div>
-                    <div className="flex border-b border-gray-200 py-2">
-                      <span className="w-28 text-gray-500">Function</span>
-                      <span>
-                        {selectedIncident?.metadata?.caller?.function}
-                      </span>
-                    </div>
-                    <div className="pt-2">
-                      <span className="w-28 text-gray-500 block mb-1">
-                        Stack Trace
-                      </span>
-                      <pre className="overflow-x-auto text-gray-600">
-                        {selectedIncident?.stack}
-                      </pre>
-                    </div>
+              <div>
+                <p className="text-gray-500 mb-1">Payload Sample</p>
+                <pre className="bg-gray-100 p-4 rounded text-xs overflow-x-auto">
+                  {selectedIncident.indicators?.payloadSample}
+                </pre>
+              </div>
+
+              <div>
+                <p className="text-gray-500 mb-1">Request Meta</p>
+                <div className="bg-gray-100 p-4 rounded text-xs space-y-1">
+                  <div>IP: {selectedIncident.requestMeta?.clientIp}</div>
+                  <div>
+                    User Agent: {selectedIncident.requestMeta?.userAgent}
+                  </div>
+                  <div>
+                    Path: {selectedIncident.requestMeta?.normalizedPath}
                   </div>
                 </div>
               </div>
 
-              {/* Footer */}
-              <div className="flex items-center justify-end border-t border-gray-200 p-4">
-                <button
-                  disabled={selectedIncident.status === "solved"}
-                  onClick={() => markIncidentAsResolved(selectedIncident._id)}
-                  className={`flex items-center justify-center rounded-lg px-4 py-2 bg-gradient-to-b ${
-                    selectedIncident.status === "solved"
-                      ? "from-green-500 to-green-600 cursor-not-allowed opacity-80"
-                      : "from-cyan-500 to-cyan-600 cursor-pointer "
-                  } text-white text-sm font-semibold hover:opacity-90 `}
-                >
-                  {revokeLoading ? (
-                    <Loader color="white" size={15} />
-                  ) : selectedIncident.status === "solved" ? (
-                    "Incident Resolved"
-                  ) : (
-                    "Mark as Resolved"
-                  )}
-                </button>
+              <div>
+                <p className="text-gray-500 mb-1">Metrics</p>
+                <div className="bg-gray-100 p-4 rounded text-xs">
+                  Duration: {selectedIncident.metrics?.durationMs} ms <br />
+                  Status Code: {selectedIncident.metrics?.statusCode}
+                </div>
               </div>
             </div>
-          )}
+          </div>
         </div>
       )}
     </div>

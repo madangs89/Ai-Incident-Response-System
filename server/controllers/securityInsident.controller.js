@@ -132,7 +132,7 @@ export const getAllIncidents = async (req, res) => {
       severity,
       sortBy = "createdAt",
       order = "desc",
-    } = req.body;
+    } = req.query;
 
     const filter = {};
 
