@@ -1,13 +1,6 @@
-import React from "react";
-import {
-  Search,
-  ArrowUp,
-  ArrowDown,
-  BarChart3,
-  Settings,
-  Bell,
-  LogOut,
-} from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { ArrowUp, ArrowDown } from "lucide-react";
+import axios from "axios";
 import {
   AreaChart,
   Area,
@@ -19,10 +12,22 @@ import {
   Pie,
   Cell,
 } from "recharts";
+import { useSelector } from "react-redux";
+import AnalyticsModal from "../Components/AnalyticsModal";
 
 const Analytics = () => {
-  // Dummy Data for Line Chart (Logs analyzed per day)
-  const logsData = [
+  const [selectedIncident, setSelectedIncident] = useState(null);
+  const keysSlice = useSelector((state) => state.user);
+
+  /* =========================
+     STATIC INCIDENT DATA
+  ========================== */
+  const [endpoints, setEndpoints] = useState([]);
+
+  /* =========================
+     CHART DATA
+  ========================== */
+  const [logsData, setLogsData] = useState([
     { day: "Mon", logs: 800 },
     { day: "Tue", logs: 1200 },
     { day: "Wed", logs: 950 },
@@ -30,9 +35,8 @@ const Analytics = () => {
     { day: "Fri", logs: 1300 },
     { day: "Sat", logs: 900 },
     { day: "Sun", logs: 1500 },
-  ];
+  ]);
 
-  // Dummy Data for Pie Chart (Error Severity Distribution)
   const errorData = [
     { name: "Critical", value: 45, color: "#EF4444" },
     { name: "High", value: 30, color: "#F97316" },
@@ -40,208 +44,144 @@ const Analytics = () => {
     { name: "Low", value: 10, color: "#84CC16" },
   ];
 
-  // Table Data
-  const endpoints = [
-    {
-      path: "/api/v1/users/authenticate",
-      method: "POST",
-      count: "1,204",
-      last: "2 min ago",
-    },
-    {
-      path: "/api/v2/payments/process",
-      method: "POST",
-      count: "982",
-      last: "15 min ago",
-    },
-    {
-      path: "/api/v1/inventory/{id}",
-      method: "GET",
-      count: "753",
-      last: "45 min ago",
-    },
-    {
-      path: "/api/v1/orders",
-      method: "PUT",
-      count: "512",
-      last: "1 hour ago",
-    },
-    {
-      path: "/api/v3/reports/generate",
-      method: "GET",
-      count: "344",
-      last: "2 hours ago",
-    },
-  ];
+  useEffect(() => {
+    (async () => {
+      if (keysSlice.selectedKey) {
+        const apiKey = keysSlice.selectedKey.split(":")[1];
+        const base = import.meta.env.VITE_BACKEND_URL;
+
+        const allIncidentsRes = await axios.get(
+          `${base}/api/incident/get-incidents/${apiKey}`,
+          {
+            withCredentials: true,
+          },
+        );
+
+        setEndpoints(allIncidentsRes.data.data || []);
+        console.log("Fetched all incidents:", allIncidentsRes.data);
+
+        const logDateWise = await axios.get(`${base}/api/log/trend/${apiKey}`, {
+          withCredentials: true,
+        });
+
+        if (logDateWise.data.success) {
+          setLogsData(logDateWise.data.data);
+        }
+      }
+    })();
+  }, [keysSlice.selectedKey]);
 
   return (
-    <div className="w-full h-full bg-white ">
-      <div className="max-w-7xl mx-auto flex flex-col gap-8">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex flex-col">
-            <h1 className="text-4xl font-black text-[#0F172A] tracking-[-0.03em]">
-              Usage &amp; Metrics
-            </h1>
-            <p className="text-gray-600 text-base">
-              Monitor your usage and analyze key metrics for your projects.
-            </p>
-          </div>
-
-          <button className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 h-10 text-sm font-semibold text-black hover:bg-gray-100">
-            Last 30 Days
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-4 h-4 text-gray-500"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="m6 9 6 6 6-6" />
-            </svg>
-          </button>
+    <div className="w-full bg-white p-8">
+      <div className="max-w-7xl mx-auto flex flex-col gap-10">
+        {/* HEADER */}
+        <div>
+          <h1 className="text-4xl font-black text-[#0F172A]">
+            Usage & Metrics
+          </h1>
+          <p className="text-gray-600 mt-2">
+            Monitor your usage and analyze key metrics.
+          </p>
         </div>
 
-        {/* Metrics Cards */}
+        {/* CHART SECTION */}
         <div className="flex gap-6">
-          {/* Logs Analyzed Chart */}
-          <div className="flex-1 flex flex-col gap-2 p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
-            <p className="text-base font-medium text-[#0F172A]">
-              Logs Analyzed Per Day
-            </p>
-            <p className="text-4xl font-bold">1.2M</p>
-            <div className="flex items-center gap-2">
-              <p className="text-gray-500 text-sm">Last 30 Days</p>
-              <div className="flex items-center gap-1 text-green-600">
-                <ArrowUp size={14} />
-                <p className="text-sm font-semibold">+15.2%</p>
-              </div>
-            </div>
-
-            <div className="h-56 w-full mt-4">
+          {/* Area Chart */}
+          <div className="flex-1 p-6 bg-white border rounded-xl shadow-sm">
+            <p className="text-lg font-semibold">Logs Analyzed</p>
+            <div className="h-56 mt-4">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={logsData} margin={{ top: 10, right: 20 }}>
-                  <defs>
-                    <linearGradient id="colorLogs" x1="0" y1="0" x2="0" y2="1">
-                      <stop
-                        offset="5%"
-                        stopColor="#06B6D4"
-                        stopOpacity={0.25}
-                      />
-                      <stop
-                        offset="95%"
-                        stopColor="#06B6D4"
-                        stopOpacity={0}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="day" stroke="#94A3B8" />
-                  <YAxis stroke="#94A3B8" />
-                  <Tooltip
-                    contentStyle={{
-                      background: "white",
-                      border: "1px solid #E2E8F0",
-                      borderRadius: "8px",
-                    }}
-                  />
+                <AreaChart data={logsData}>
                   <Area
                     type="monotone"
                     dataKey="logs"
                     stroke="#06B6D4"
-                    strokeWidth={3}
-                    fillOpacity={1}
-                    fill="url(#colorLogs)"
+                    fill="#06B6D4"
+                    fillOpacity={0.2}
                   />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
           </div>
 
-          {/* Error Severity Pie */}
-          <div className="flex-1 flex flex-col gap-2 p-6 bg-white border border-gray-200 rounded-xl shadow-sm">
-            <p className="text-base font-medium text-[#0F172A]">
-              Error Severity Distribution
-            </p>
-            <p className="text-4xl font-bold">543 Total</p>
-            <div className="flex items-center gap-2">
-              <p className="text-gray-500 text-sm">Last 30 Days</p>
-              <div className="flex items-center gap-1 text-red-600">
-                <ArrowDown size={14} />
-                <p className="text-sm font-semibold">-2.1%</p>
-              </div>
-            </div>
+          {/* Pie Chart */}
 
-            <div className="flex items-center justify-around mt-4">
-              <div className="w-52 h-52">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={errorData}
-                      innerRadius="60%"
-                      outerRadius="80%"
-                      paddingAngle={4}
-                      dataKey="value"
-                    >
-                      {errorData.map((entry, index) => (
-                        <Cell key={index} fill={entry.color} />
-                      ))}
-                    </Pie>
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                {errorData.map((e, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div
-                      className="w-3 h-3 rounded-full"
-                      style={{ background: e.color }}
-                    ></div>
-                    <p className="text-sm text-[#0F172A]">
-                      {e.name}{" "}
-                      <span className="text-gray-500">({e.value}%)</span>
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="flex items-center justify-around mt-4">
+            {" "}
+            <div className="w-52 h-52">
+              {" "}
+              <ResponsiveContainer width="100%" height="100%">
+                {" "}
+                <PieChart>
+                  {" "}
+                  <Pie
+                    data={errorData}
+                    innerRadius="60%"
+                    outerRadius="80%"
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {" "}
+                    {errorData.map((entry, index) => (
+                      <Cell key={index} fill={entry.color} />
+                    ))}{" "}
+                  </Pie>{" "}
+                </PieChart>{" "}
+              </ResponsiveContainer>{" "}
+            </div>{" "}
+            <div className="flex flex-col gap-3">
+              {" "}
+              {errorData.map((e, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  {" "}
+                  <div
+                    className="w-3 h-3 rounded-full"
+                    style={{ background: e.color }}
+                  ></div>{" "}
+                  <p className="text-sm text-[#0F172A]">
+                    {" "}
+                    {e.name}{" "}
+                    <span className="text-gray-500">({e.value}%)</span>{" "}
+                  </p>{" "}
+                </div>
+              ))}{" "}
+            </div>{" "}
           </div>
         </div>
 
-        {/* Table */}
+        {/* TABLE */}
         <div>
-          <h2 className="text-[22px] font-bold text-[#0F172A] pt-4 pb-3">
+          <h2 className="text-2xl font-bold mb-4">
             Top Endpoints Causing Incidents
           </h2>
-          <div className="border border-gray-200 rounded-xl shadow-sm overflow-hidden">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-gray-100 text-gray-700 uppercase text-xs">
+
+          <div className="border rounded-xl shadow-sm overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 text-gray-600 uppercase text-xs">
                 <tr>
-                  <th className="px-6 py-3">Endpoint Path</th>
-                  <th className="px-6 py-3">HTTP Method</th>
-                  <th className="px-6 py-3">Incident Count</th>
+                  <th className="px-6 py-3">Endpoint</th>
+                  <th className="px-6 py-3">Method</th>
+                  <th className="px-6 py-3">Occurrences</th>
                   <th className="px-6 py-3">Last Seen</th>
                 </tr>
               </thead>
+
               <tbody>
-                {endpoints.map((ep, i) => (
+                {endpoints.map((ep) => (
                   <tr
-                    key={i}
-                    className="border-t border-gray-200 hover:bg-gray-50 transition"
+                    key={ep._id}
+                    className="border-t hover:bg-gray-50 cursor-pointer transition"
+                    onClick={() => setSelectedIncident(ep)}
                   >
-                    <td className="px-6 py-3 font-medium text-[#0F172A]">
-                      {ep.path}
+                    <td className="px-6 py-4 font-medium">{ep?.endpoint}</td>
+                    <td className="px-6 py-4">
+                      {ep?.metadata?.method || "N/A"}
                     </td>
-                    <td className="px-6 py-3">
-                      <span className="px-2.5 py-0.5 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                        {ep.method}
-                      </span>
-                    </td>
-                    <td className="px-6 py-3">{ep.count}</td>
-                    <td className="px-6 py-3">{ep.last}</td>
+                    <td className="px-6 py-4">{ep?.occurrences}</td>
+                    <td className="px-6 py-4">{ep?.lastSeen}</td>
                   </tr>
                 ))}
               </tbody>
@@ -249,8 +189,26 @@ const Analytics = () => {
           </div>
         </div>
       </div>
+
+      {/* MODAL */}
+      {selectedIncident && (
+        <AnalyticsModal
+          selectedIncident={selectedIncident}
+          setSelectedIncident={setSelectedIncident}
+        />
+      )}
     </div>
   );
 };
+
+/* =========================
+   REUSABLE INFO COMPONENT
+========================== */
+const Info = ({ label, value, mono }) => (
+  <div>
+    <p className="text-gray-500 text-xs mb-1">{label}</p>
+    <p className={`${mono ? "font-mono text-xs" : "font-semibold"}`}>{value}</p>
+  </div>
+);
 
 export default Analytics;

@@ -501,7 +501,7 @@ export default class AIAnalyzerLogger {
       bodySample = JSON.stringify(req.body)?.slice(0, 500) || "";
     } catch (e) {}
 
-    // 🧩 Wrap response finish for metrics
+    // Wrap response finish for metrics
     res.on("finish", async () => {
       const duration = Date.now() - start;
       console.log("metric", {
