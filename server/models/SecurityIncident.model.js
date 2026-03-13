@@ -13,20 +13,20 @@ const securityIncidentSchema = new mongoose.Schema(
     // ---- Attack classification ----
     attackType: {
       type: String,
-      enum: [
-        "SQL_INJECTION",
-        "NOSQL_INJECTION",
-        "XSS",
-        "COMMAND_INJECTION",
-        "PATH_TRAVERSAL",
-        "ANOMALY",
-      ],
+      // enum: [
+      //   "SQL_INJECTION",
+      //   "NOSQL_INJECTION",
+      //   "XSS",
+      //   "COMMAND_INJECTION",
+      //   "PATH_TRAVERSAL",
+      //   "ANOMALY",
+      // ],
       required: true,
     },
 
     detectionSource: {
       type: String,
-      enum: ["RULE", "ML", "RULE+ML"],
+      // enum: ["RULE", "ML", "RULE+ML"],
       required: true,
     },
 
@@ -78,7 +78,7 @@ const securityIncidentSchema = new mongoose.Schema(
     // ---- Lifecycle ----
     status: {
       type: String,
-      enum: ["open", "acknowledged", "resolved"],
+      // enum: ["open", "acknowledged", "resolved"],
       default: "open",
     },
   },

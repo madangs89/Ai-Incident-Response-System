@@ -2,9 +2,6 @@ import APIKey from "../models/apikeys.model.js";
 import Metric from "../models/metrix.model.js";
 import SecurityIncident from "../models/SecurityIncident.model.js";
 
-/* ============================
-   SEVERITY BASE
-============================ */
 const ATTACK_BASE_SEVERITY = {
   SQL_INJECTION: 4,
   NOSQL_INJECTION: 4,
@@ -13,30 +10,163 @@ const ATTACK_BASE_SEVERITY = {
   XSS: 3,
 };
 
-/* ============================
-   RULE-BASED DETECTION
-============================ */
 function detectRuleBasedAttack(item) {
-  const payload = (item.bodySample || "").toLowerCase();
-  const endpoint = (item.endpoint || "").toLowerCase();
+  try {
+    /* ============================
+       NORMALIZE INPUT
+    ============================ */
 
-  if (/('|%27)\s*or\s*1=1|union\s+select/.test(payload)) return "SQL_INJECTION";
+    let payload = `${item.bodySample || ""} ${item.endpoint || ""}`;
 
-  if (/<script>|onerror=|onload=/.test(payload)) return "XSS";
+    try {
+      payload = decodeURIComponent(payload);
+    } catch {}
 
-  if (/(;|\|\||&&)\s*(ls|rm|cat|bash|sh)/.test(payload))
-    return "COMMAND_INJECTION";
+    payload = payload.toLowerCase().replace(/\+/g, " ").replace(/\s+/g, " ");
 
-  if (/(\.\.\/|%2e%2e%2f)/.test(endpoint + payload)) return "PATH_TRAVERSAL";
+    /* ============================
+       SQL INJECTION
+    ============================ */
 
-  if (/\$(ne|gt|lt|where)/.test(payload)) return "NOSQL_INJECTION";
+    if (
+      /\bunion\b.*\bselect\b/.test(payload) ||
+      /\bor\s+1=1\b/.test(payload) ||
+      /\band\s+1=1\b/.test(payload) ||
+      /\bselect\b.*\bfrom\b/.test(payload) ||
+      /\binsert\b.*\binto\b/.test(payload) ||
+      /\bupdate\b.*\bset\b/.test(payload) ||
+      /\bdelete\b.*\bfrom\b/.test(payload) ||
+      /\bdrop\s+table\b/.test(payload) ||
+      /--/.test(payload) ||
+      /\/\*/.test(payload) ||
+      /\bxp_/.test(payload) ||
+      /\bsleep\s*\(/.test(payload) ||
+      /\bbenchmark\s*\(/.test(payload) ||
+      /\binformation_schema\b/.test(payload) ||
+      /\bload_file\s*\(/.test(payload) ||
+      /\binto\s+outfile\b/.test(payload)
+    ) {
+      return "SQL_INJECTION";
+    }
 
-  return null;
+    /* ============================
+       XSS
+    ============================ */
+
+    if (
+      /<script\b/.test(payload) ||
+      /<\/script>/.test(payload) ||
+      /onerror\s*=/.test(payload) ||
+      /onload\s*=/.test(payload) ||
+      /javascript:/.test(payload) ||
+      /document\.cookie/.test(payload) ||
+      /alert\s*\(/.test(payload) ||
+      /<img\b/.test(payload) ||
+      /<svg\b/.test(payload)
+    ) {
+      return "XSS";
+    }
+
+    /* ============================
+       COMMAND INJECTION
+    ============================ */
+
+    if (
+      /;\s*(ls|cat|rm|bash|sh|whoami)/.test(payload) ||
+      /\|\|/.test(payload) ||
+      /&&/.test(payload) ||
+      /\|\s*(ls|cat|rm)/.test(payload) ||
+      /`.*`/.test(payload) ||
+      /\$\(/.test(payload)
+    ) {
+      return "COMMAND_INJECTION";
+    }
+
+    /* ============================
+       PATH TRAVERSAL
+    ============================ */
+
+    if (
+      /\.\.\//.test(payload) ||
+      /\.\.\\/.test(payload) ||
+      /%2e%2e%2f/.test(payload) ||
+      /%252e%252e%252f/.test(payload) ||
+      /etc\/passwd/.test(payload) ||
+      /windows\/system32/.test(payload)
+    ) {
+      return "PATH_TRAVERSAL";
+    }
+
+    /* ============================
+       NOSQL INJECTION
+    ============================ */
+
+    if (
+      /\$ne/.test(payload) ||
+      /\$gt/.test(payload) ||
+      /\$lt/.test(payload) ||
+      /\$regex/.test(payload) ||
+      /\$where/.test(payload) ||
+      /\$or/.test(payload) ||
+      /\$and/.test(payload)
+    ) {
+      return "NOSQL_INJECTION";
+    }
+
+    /* ============================
+       SSRF
+    ============================ */
+
+    if (
+      /127\.0\.0\.1/.test(payload) ||
+      /localhost/.test(payload) ||
+      /0\.0\.0\.0/.test(payload) ||
+      /169\.254\.169\.254/.test(payload) ||
+      /file:\/\//.test(payload) ||
+      /gopher:\/\//.test(payload)
+    ) {
+      return "SSRF";
+    }
+
+    /* ============================
+       FILE INCLUSION
+    ============================ */
+
+    if (
+      /\/etc\/passwd/.test(payload) ||
+      /\/proc\/self\/environ/.test(payload) ||
+      /boot\.ini/.test(payload)
+    ) {
+      return "FILE_INCLUSION";
+    }
+
+    /* ============================
+       TEMPLATE INJECTION
+    ============================ */
+
+    if (
+      /\{\{.*\}\}/.test(payload) ||
+      /\$\{.*\}/.test(payload) ||
+      /\<\%.*\%\>/.test(payload)
+    ) {
+      return "TEMPLATE_INJECTION";
+    }
+
+    /* ============================
+       PROTOTYPE POLLUTION
+    ============================ */
+
+    if (/__proto__/.test(payload) || /constructor\.prototype/.test(payload)) {
+      return "PROTOTYPE_POLLUTION";
+    }
+
+    return null;
+  } catch (err) {
+    console.error("Rule Engine Error:", err);
+    return null;
+  }
 }
 
-/* ============================
-   MAIN CONTROLLER
-============================ */
 export const MetricAccept = async (req, res) => {
   try {
     console.log("Metric received");
@@ -104,7 +234,7 @@ export const MetricAccept = async (req, res) => {
           method: item.method,
 
           apiKey, // for attribution
-          attackType,
+          attackType: JSON.stringify(attackType),
           detectionSource: "RULE",
 
           severity,

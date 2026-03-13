@@ -1,5 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import axios from "axios";
+import Redis from "ioredis";
 export default class AIAnalyzerLogger {
   constructor(key, serviceName, environment = "development") {
     if (!key) {
@@ -28,6 +29,13 @@ export default class AIAnalyzerLogger {
     this.metricQueue = [];
     this.metricInterval = 10 * 1000;
     this.isMetricFlushing = false;
+    this.redis = null;
+    this.bruteForceEnabled = false;
+    this.bruteForceOptions = {
+      maxAttempts: 5,
+      windowSec: 60,
+      blockSec: 600,
+    };
 
     setInterval(() => {
       if (this.isMetricFlushing == false && this.metricQueue.length > 0) {
@@ -146,6 +154,57 @@ export default class AIAnalyzerLogger {
   consoler = (data) => {
     console.log(data);
   };
+
+  enableBruteForceProtection(redisUrl, options = {}) {
+    this.redis = new Redis(redisUrl);
+
+    this.bruteForceEnabled = true;
+
+    this.bruteForceOptions = {
+      ...this.bruteForceOptions,
+      ...options,
+    };
+
+    console.log("🛡️ [AIAnalyzer] Brute force protection enabled");
+  }
+
+  async checkBruteForce(ip) {
+    if (!this.bruteForceEnabled || !this.redis) return false;
+
+    const failKey = `bf:fail:${ip}`;
+    const blockKey = `bf:block:${ip}`;
+
+    const isBlocked = await this.redis.get(blockKey);
+
+    if (isBlocked) return true;
+
+    return false;
+  }
+
+  async recordFailedLogin(ip) {
+    if (!this.bruteForceEnabled || !this.redis) return false;
+
+    const { maxAttempts, windowSec, blockSec } = this.bruteForceOptions;
+
+    const failKey = `bf:fail:${ip}`;
+    const blockKey = `bf:block:${ip}`;
+
+    const attempts = await this.redis.incr(failKey);
+
+    if (attempts === 1) {
+      await this.redis.expire(failKey, windowSec);
+    }
+
+    if (attempts > maxAttempts) {
+      await this.redis.set(blockKey, "1", "EX", blockSec);
+
+      console.log(`🚨 [AIAnalyzer] IP blocked: ${ip}`);
+
+      return true;
+    }
+
+    return false;
+  }
 
   /**
    * Classifies an error based on message content, error name, stack trace, HTTP status,
@@ -552,6 +611,27 @@ export default class AIAnalyzerLogger {
           { module: "express", operation: "response", status: res.statusCode },
           { req, isReq: true },
         );
+      }
+
+      if (
+        this.bruteForceEnabled &&
+        (req.originalUrl.includes("login") ||
+          req.originalUrl.includes("auth") ||
+          req.originalUrl.includes("signin") ||
+          req.originalUrl.includes("signup") ||
+          req.originalUrl.includes("register"))
+      ) {
+        if (res.statusCode === 401 || res.statusCode === 403) {
+          const blocked = await this.recordFailedLogin(req.ip);
+
+          if (blocked) {
+            console.log(`🚨 Brute force detected from ${req.ip}`);
+          }
+        }
+
+        if (await this.checkBruteForce(req.ip)) {
+          console.log(`🚫 Blocked login attempt from ${req.ip}`);
+        }
       }
     });
 

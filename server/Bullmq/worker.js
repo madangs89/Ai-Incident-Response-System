@@ -21,36 +21,136 @@ try {
   process.exit(1);
 }
 
+// export const apiLogsWorker = new Worker(
+//   "api-logs-queue",
+//   async (job) => {
+//     const { log, key } = job.data;
+//     const FullLogs = [];
+//     const fullIncidents = [];
+//     for (let i = 0; i < log.length; i++) {
+//       // console.log(log[i]);
+//       const signature = generateSignature(
+//         log[i]?.error_type,
+//         log[i]?.message,
+//         log[i]?.metadata?.functionName,
+//         log[i]?.metadata?.file
+//       );
+//       if (!fullIncidents.some((item) => item.signature === signature)) {
+//         fullIncidents.push({
+//           signature,
+//           serviceName: log[i]?.service_name,
+//           message: log[i]?.message,
+//           errorType: log[i]?.error_type,
+//           metadata: log[i]?.metadata,
+//           complexity: log[i]?.metadata?.severity,
+//           key: key,
+//           sdk_version: log[i]?.sdk_version,
+//           level: log[i]?.level,
+//           createdAt: log[i]?.timestamp,
+//           endpoint: log[i]?.metadata?.endpoint || log[i]?.metadata?.module,
+//           stack: log[i]?.stack,
+//         });
+//       }
+//       FullLogs.push({
+//         serviceName: log[i]?.service_name,
+//         message: log[i]?.message,
+//         errorType: log[i]?.error_type,
+//         metadata: log[i]?.metadata,
+//         complexity: log[i]?.metadata?.severity,
+//         key: key,
+//         sdk_version: log[i]?.sdk_version,
+//         level: log[i]?.level,
+//         createdAt: log[i]?.timestamp,
+//         stack: log[i]?.stack,
+//       });
+//     }
+//     let isError = false;
+//     try {
+//       const data = await Log.insertMany(FullLogs);
+//       if (data) {
+//         console.log("Logs Inserted Successfully");
+//       }
+//     } catch (error) {
+//       console.log(error);
+//       isError = true;
+//     }
+//     if (!isError) {
+//       try {
+//         console.log("adding to incidents");
+
+//         const bulkOps = fullIncidents.map((incident) => ({
+//           updateOne: {
+//             filter: { signature: incident.signature },
+//             update: {
+//               $setOnInsert: {
+//                 endpoint: incident.endpoint,
+//                 serviceName: incident.serviceName,
+//                 errorType: incident.errorType,
+//                 complexity: incident.complexity,
+//                 key: incident.key,
+//                 message: incident.message,
+//                 metadata: incident.metadata,
+//                 stack: incident.stack,
+//                 status: "active",
+//                 aiAnalysisId: incident.aiAnalysisId || null,
+//               },
+//               $set: { lastSeen: new Date() },
+//               $inc: { occurrences: 1 },
+//             },
+//             upsert: true,
+//           },
+//         }));
+
+//         const result = await Incident.bulkWrite(bulkOps, { ordered: false });
+
+//         // Only newly INSERTED docs need AI queue
+//         if (result.upsertedCount > 0) {
+//           for (const index in result.upsertedIds) {
+//             const insertedId = result.upsertedIds[index];
+
+//             // original input that caused the NEW insert
+//             const originalIncident = fullIncidents[index];
+//             console.log("New Incidents Recorded So called AI Response Queue");
+//             await aiResponseQueue.add("ai-response-queue", {
+//               incident: originalIncident,
+//               key,
+//               _id: insertedId,
+//             });
+//             console.log("added to ai response queue");
+//           }
+//         }
+//       } catch (error) {
+//         let payload = {
+//           fullIncidents,
+//         };
+//         await addErrorJob(
+//           payload,
+//           "errorQueue",
+//           "errors-queue",
+//           key,
+//           "incidents"
+//         );
+//       }
+//     } else {
+//       let payload = {
+//         fullIncidents,
+//         FullLogs,
+//       };
+//       await addErrorJob(payload, "errorQueue", "errors-queue", key, "fullLogs");
+//     }
+//     return { processed: log.length };
+//   },
+//   { connection: ioredis }
+// );
+
 export const apiLogsWorker = new Worker(
   "api-logs-queue",
   async (job) => {
     const { log, key } = job.data;
+
     const FullLogs = [];
-    const fullIncidents = [];
+
     for (let i = 0; i < log.length; i++) {
-      // console.log(log[i]);
-      const signature = generateSignature(
-        log[i]?.error_type,
-        log[i]?.message,
-        log[i]?.metadata?.functionName,
-        log[i]?.metadata?.file
-      );
-      if (!fullIncidents.some((item) => item.signature === signature)) {
-        fullIncidents.push({
-          signature,
-          serviceName: log[i]?.service_name,
-          message: log[i]?.message,
-          errorType: log[i]?.error_type,
-          metadata: log[i]?.metadata,
-          complexity: log[i]?.metadata?.severity,
-          key: key,
-          sdk_version: log[i]?.sdk_version,
-          level: log[i]?.level,
-          createdAt: log[i]?.timestamp,
-          endpoint: log[i]?.metadata?.endpoint || log[i]?.metadata?.module,
-          stack: log[i]?.stack,
-        });
-      }
       FullLogs.push({
         serviceName: log[i]?.service_name,
         message: log[i]?.message,
@@ -64,83 +164,55 @@ export const apiLogsWorker = new Worker(
         stack: log[i]?.stack,
       });
     }
-    let isError = false;
+
     try {
-      const data = await Log.insertMany(FullLogs);
-      if (data) {
-        console.log("Logs Inserted Successfully");
-      }
-    } catch (error) {
-      console.log(error);
-      isError = true;
-    }
-    if (!isError) {
-      try {
-        console.log("adding to incidents");
+      await Log.insertMany(FullLogs);
+      console.log("Logs Inserted Successfully");
 
-        const bulkOps = fullIncidents.map((incident) => ({
-          updateOne: {
-            filter: { signature: incident.signature },
-            update: {
-              $setOnInsert: {
-                endpoint: incident.endpoint,
-                serviceName: incident.serviceName,
-                errorType: incident.errorType,
-                complexity: incident.complexity,
-                key: incident.key,
-                message: incident.message,
-                metadata: incident.metadata,
-                stack: incident.stack,
-                status: "active",
-                aiAnalysisId: incident.aiAnalysisId || null,
-              },
-              $set: { lastSeen: new Date() },
-              $inc: { occurrences: 1 },
-            },
-            upsert: true,
-          },
-        }));
-
-        const result = await Incident.bulkWrite(bulkOps, { ordered: false });
-
-        // Only newly INSERTED docs need AI queue
-        if (result.upsertedCount > 0) {
-          for (const index in result.upsertedIds) {
-            const insertedId = result.upsertedIds[index];
-
-            // original input that caused the NEW insert
-            const originalIncident = fullIncidents[index];
-            console.log("New Incidents Recorded So called AI Response Queue");
-            await aiResponseQueue.add("ai-response-queue", {
-              incident: originalIncident,
-              key,
-              _id: insertedId,
-            });
-            console.log("added to ai response queue");
-          }
-        }
-      } catch (error) {
-        let payload = {
-          fullIncidents,
+      for (const logItem of log) {
+        const incidentDoc = {
+          endpoint: logItem?.metadata?.endpoint || logItem?.metadata?.module,
+          serviceName: logItem?.service_name,
+          errorType: logItem?.error_type,
+          occurrences: 1,
+          lastSeen: new Date(),
+          complexity: logItem?.metadata?.severity,
+          key: key,
+          signature: generateSignature(
+            logItem?.error_type,
+            logItem?.message,
+            logItem?.metadata?.functionName,
+            logItem?.metadata?.file,
+          ),
+          metadata: logItem?.metadata,
+          message: logItem?.message,
+          stack: logItem?.stack,
+          incidentType: "ERROR",
         };
-        await addErrorJob(
-          payload,
-          "errorQueue",
-          "errors-queue",
+
+        const createdIncident = await Incident.create(incidentDoc);
+
+        await aiResponseQueue.add("ai-response-queue", {
+          incident: incidentDoc,
           key,
-          "incidents"
-        );
+          _id: createdIncident._id,
+        });
       }
-    } else {
-      let payload = {
-        fullIncidents,
-        FullLogs,
-      };
-      await addErrorJob(payload, "errorQueue", "errors-queue", key, "fullLogs");
+
+      return { processed: log.length };
+    } catch (error) {
+      console.error(error);
+
+      await addErrorJob(
+        { logs: log },
+        "errorQueue",
+        "errors-queue",
+        key,
+        "incidents",
+      );
     }
-    return { processed: log.length };
   },
-  { connection: ioredis }
+  { connection: ioredis },
 );
 
 console.log("Worker is running...");
@@ -154,7 +226,7 @@ export const aiResponseWorker = new Worker(
       "Incident Count:",
       incident,
       "id",
-      _id
+      _id,
     );
 
     try {
@@ -170,8 +242,6 @@ export const aiResponseWorker = new Worker(
             aiResponse?.fixSuggestion ||
             "Something May Went Wrong Please ReGenerate in Web UI",
         });
-
-        
       }
       return { processed: incident };
     } catch (error) {
@@ -182,6 +252,6 @@ export const aiResponseWorker = new Worker(
   },
   {
     connection: ioredis,
-  }
+  },
 );
 console.log("ai-response queue is running");
