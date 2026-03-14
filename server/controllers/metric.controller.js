@@ -44,7 +44,20 @@ function detectRuleBasedAttack(item) {
       /\bbenchmark\s*\(/.test(payload) ||
       /\binformation_schema\b/.test(payload) ||
       /\bload_file\s*\(/.test(payload) ||
-      /\binto\s+outfile\b/.test(payload)
+      /\binto\s+outfile\b/.test(payload) ||
+      /\bconcat\b/.test(payload) ||
+      /\bgroup_concat\b/.test(payload) ||
+      /\bversion\(\)/.test(payload) ||
+      /\bdatabase\(\)/.test(payload) ||
+      /\buser\(\)/.test(payload) ||
+      /\bif\s*\(.*\)\s*then\b/.test(payload) ||
+      /\bcase\s+when\b/.test(payload) ||
+      /\belse\b/.test(payload) ||
+      /\bend\b/.test(payload) ||
+      /\bdeclare\b/.test(payload) ||
+      /\bexec\b/.test(payload) ||
+      /\bexecute\b/.test(payload) ||
+      /\bcall\b/.test(payload)
     ) {
       return "SQL_INJECTION";
     }
@@ -108,7 +121,21 @@ function detectRuleBasedAttack(item) {
       /\$regex/.test(payload) ||
       /\$where/.test(payload) ||
       /\$or/.test(payload) ||
-      /\$and/.test(payload)
+      /\$and/.test(payload) ||
+      /\$not/.test(payload) ||
+      /\$nor/.test(payload) ||
+      /\$expr/.test(payload) ||
+      /\$jsonSchema/.test(payload) ||
+      /\$geoIntersects/.test(payload) ||
+      /\$geoWithin/.test(payload) ||
+      /\$near/.test(payload) ||
+      /\$nearSphere/.test(payload) ||
+      /\$text/.test(payload) ||
+      /\$search/.test(payload) ||
+      /\$indexOfBytes/.test(payload) ||
+      /\$indexOfCP/.test(payload) ||
+      /\$substr/.test(payload) ||
+      /\$substrBytes/.test(payload)
     ) {
       return "NOSQL_INJECTION";
     }

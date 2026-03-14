@@ -100,11 +100,11 @@ const AuthPage = () => {
         }
       );
       console.log({ data });
-      if (data.success) {
+      if (data.data.success) {
         toast.success("Login successful");
         dispatch(setIsAuthenticated(true));
-        dispatch(setUser(data?.user));
-        dispatch(setToken(data?.token));
+        dispatch(setUser(data?.data?.user));
+        dispatch(setToken(data?.data?.token));
         navigate("/dashboard");
       }
     } catch (error) {
